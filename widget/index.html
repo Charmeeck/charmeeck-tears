@@ -11,10 +11,7 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
 .art img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain;user-select:none;z-index:3}
 .liquid-svg{position:absolute;inset:0;width:100%;height:100%;z-index:4;pointer-events:none}
 #waterRect{transition:y .9s ease}
-.wave-line{fill:none;stroke:#c5fbff;stroke-width:3;filter:url(#glow);animation:wave 2.2s ease-in-out infinite alternate}
-.wave-shine{fill:none;stroke:#29caff;stroke-width:2;opacity:.8;animation:wave2 1.8s ease-in-out infinite alternate}
-.bubble{fill:none;stroke:#d2fcff;stroke-width:2;filter:url(#glow);animation:bubble 2.8s ease-in infinite}
-.bubble:nth-of-type(2){animation-delay:.7s}.bubble:nth-of-type(3){animation-delay:1.3s}.bubble:nth-of-type(4){animation-delay:1.9s}
+.bubble:nth-of-type(4){animation-delay:1.9s}
 .live-label{position:absolute;top:78%;z-index:6;color:#f5fbff;font-family:Georgia,serif;font-size:clamp(18px,2.65vw,47px);line-height:1;white-space:nowrap;text-shadow:0 0 7px rgba(140,205,255,.45);pointer-events:none}
 .current-label{left:16%;width:17%;text-align:center}
 .goal-label{left:67%;width:20%;text-align:center}
@@ -41,7 +38,7 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
 <rect x="770" y="690" width="225" height="120" fill="url(#cavity)" opacity=".34"/>
 <rect id="waterRect" x="770" y="758" width="225" height="55" fill="url(#water)"/>
 
-<circle class="bubble" cx="823" cy="779" r="4"/><circle class="bubble" cx="852" cy="788" r="3"/><circle class="bubble" cx="918" cy="775" r="5"/><circle class="bubble" cx="950" cy="786" r="3"/>
+
 </g></svg>
 <img src="./assets/tears_base_layered_v4.png" alt="Донат-бар «Слёзы»">
 

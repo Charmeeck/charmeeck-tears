@@ -15,9 +15,9 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
 .wave-shine{fill:none;stroke:#29caff;stroke-width:2;opacity:.8;animation:wave2 1.8s ease-in-out infinite alternate}
 .bubble{fill:none;stroke:#d2fcff;stroke-width:2;filter:url(#glow);animation:bubble 2.8s ease-in infinite}
 .bubble:nth-of-type(2){animation-delay:.7s}.bubble:nth-of-type(3){animation-delay:1.3s}.bubble:nth-of-type(4){animation-delay:1.9s}
-.live-label{position:absolute;top:78%;z-index:5;color:#f5fbff;font-family:Georgia,serif;font-size:clamp(20px,3.25vw,58px);line-height:1;white-space:nowrap;text-shadow:0 0 7px rgba(140,205,255,.45);pointer-events:none}
-.current-label{left:17%;width:23%;text-align:center}
-.goal-label{left:60%;width:23%;text-align:center}
+.live-label{position:absolute;top:78%;z-index:6;color:#f5fbff;font-family:Georgia,serif;font-size:clamp(18px,2.65vw,47px);line-height:1;white-space:nowrap;text-shadow:0 0 7px rgba(140,205,255,.45);pointer-events:none}
+.current-label{left:16%;width:17%;text-align:center}
+.goal-label{left:67%;width:20%;text-align:center}
 .falling-drop{position:absolute;left:calc(49.8% - 10px);top:38%;width:clamp(10px,1.05vw,19px);height:clamp(17px,1.8vw,32px);opacity:0;z-index:4;pointer-events:none;transform:translateX(-50%) scale(.72);filter:drop-shadow(0 0 5px rgba(20,180,255,.95));animation:drop-fall 3s cubic-bezier(.35,.05,.55,1) infinite}
 .falling-drop:before{content:"";position:absolute;inset:0;background:linear-gradient(118deg,#f5ffff 0%,#a9f4ff 15%,#48d9ff 34%,#079cf0 57%,#0872db 77%,#e8ffff 100%);border:1px solid rgba(222,255,255,.98);clip-path:polygon(50% 0%,68% 24%,86% 48%,98% 69%,94% 83%,80% 95%,58% 100%,39% 98%,19% 90%,6% 76%,3% 64%,15% 43%,34% 19%);border-radius:50%;box-shadow:inset 2px 0 4px rgba(255,255,255,.8)}
 .falling-drop:after{content:"";position:absolute;left:27%;top:26%;width:3px;height:38%;border-radius:100%;background:linear-gradient(to bottom,rgba(255,255,255,.98),rgba(255,255,255,.15));filter:blur(.35px)}
@@ -30,11 +30,13 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
 <body><div class="stage"><div class="art">
 <svg class="liquid-svg" viewBox="0 0 1774 887" preserveAspectRatio="none" aria-hidden="true" >
 <defs>
+<linearGradient id="barPatch" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#03102d"/><stop offset=".52" stop-color="#061c55"/><stop offset="1" stop-color="#002d86"/></linearGradient>
 <clipPath id="flaskInterior"><path d="M780 704 Q794 695 814 697 Q836 701 855 703 Q879 700 901 696 Q925 694 946 699 Q970 704 985 715 L986 741 Q980 759 968 774 Q950 787 929 795 Q906 802 882 803 Q858 801 835 794 Q815 784 799 770 Q788 752 781 733 Z"/></clipPath>
 <linearGradient id="cavity" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#06162e"/><stop offset="1" stop-color="#071d39"/></linearGradient>
 <linearGradient id="water" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8ff8ff"/><stop offset=".12" stop-color="#25d8ff"/><stop offset=".55" stop-color="#078eea"/><stop offset="1" stop-color="#0754c9"/></linearGradient>
 <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
 </defs>
+<rect x="285" y="674" width="350" height="91" fill="url(#barPatch)"/><rect x="1135" y="674" width="395" height="91" fill="url(#barPatch)"/>
 <g clip-path="url(#flaskInterior)">
 <rect x="770" y="690" width="225" height="120" fill="url(#cavity)"/>
 <rect id="waterRect" x="770" y="758" width="225" height="55" fill="url(#water)"/>

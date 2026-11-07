@@ -9,7 +9,7 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
 .stage{width:100vw;height:100vh;display:grid;place-items:center;overflow:hidden}
 .art{position:relative;width:min(100vw,200vh);aspect-ratio:1774/887;overflow:hidden}
 .art img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain;user-select:none;z-index:3}
-.liquid-svg{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}
+.liquid-svg{position:absolute;inset:0;width:100%;height:100%;z-index:4;pointer-events:none}
 #waterRect{transition:y .9s ease}
 .wave-line{fill:none;stroke:#c5fbff;stroke-width:3;filter:url(#glow);animation:wave 2.2s ease-in-out infinite alternate}
 .wave-shine{fill:none;stroke:#29caff;stroke-width:2;opacity:.8;animation:wave2 1.8s ease-in-out infinite alternate}
@@ -28,7 +28,7 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
 @media(max-aspect-ratio:1774/887){.art{width:100vw}}
 </style></head>
 <body><div class="stage"><div class="art">
-<svg class="liquid-svg" viewBox="0 0 1774 887" preserveAspectRatio="none" aria-hidden="true" style="display:none">
+<svg class="liquid-svg" viewBox="0 0 1774 887" preserveAspectRatio="none" aria-hidden="true" >
 <defs>
 <clipPath id="flaskInterior"><path d="M780 704 Q794 695 814 697 Q836 701 855 703 Q879 700 901 696 Q925 694 946 699 Q970 704 985 715 L986 741 Q980 759 968 774 Q950 787 929 795 Q906 802 882 803 Q858 801 835 794 Q815 784 799 770 Q788 752 781 733 Z"/></clipPath>
 <linearGradient id="cavity" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#06162e"/><stop offset="1" stop-color="#071d39"/></linearGradient>
@@ -42,8 +42,22 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
 <path id="waveB" class="wave-shine" d="M778 762 Q805 757 830 762 T882 762 T934 762 T986 762"/>
 <circle class="bubble" cx="823" cy="779" r="4"/><circle class="bubble" cx="852" cy="788" r="3"/><circle class="bubble" cx="918" cy="775" r="5"/><circle class="bubble" cx="950" cy="786" r="3"/>
 </g></svg>
-<img src="./assets/a_high_detail_polished_png_illustration_of_the_co.png" alt="Донат-бар «Слёзы»">
+<img src="./assets/tears_base_layered_v4.png" alt="Донат-бар «Слёзы»">
 
-<span class="falling-drop" aria-hidden="true"></span>
+<div class="live-label current-label" id="currentLabel">3 750 ₽</div><div class="live-label goal-label" id="goalLabel">10 000 ₽</div><span class="falling-drop" aria-hidden="true"></span>
 </div></div>
-<script>/* Stable visual fallback: use the complete approved PNG artwork until the clean layered artwork is uploaded and validated. */</script></body></html>
+<script>
+(function(){
+ const p=new URLSearchParams(location.search);
+ const current=Math.max(0,Number(p.get("current")??3750)||0);
+ const goal=Math.max(1,Number(p.get("goal")??10000)||10000);
+ const pct=Math.max(0,Math.min(100,current/goal*100));
+ const bottom=837,top=704,level=bottom-(bottom-top)*pct/100;
+ const rect=document.getElementById("waterRect");
+ rect.setAttribute("y",level.toFixed(1));rect.setAttribute("height",(bottom-level+8).toFixed(1));
+ document.getElementById("waveA").setAttribute("d",`M778 ${level.toFixed(1)} Q805 ${(level-4).toFixed(1)} 830 ${level.toFixed(1)} T882 ${level.toFixed(1)} T934 ${level.toFixed(1)} T986 ${level.toFixed(1)}`);
+ document.getElementById("waveB").setAttribute("d",`M778 ${(level+4).toFixed(1)} Q805 ${level.toFixed(1)} 830 ${(level+4).toFixed(1)} T882 ${(level+4).toFixed(1)} T934 ${(level+4).toFixed(1)} T986 ${(level+4).toFixed(1)}`);
+ document.getElementById("currentLabel").textContent=Math.round(current).toLocaleString("ru-RU")+" ₽";
+ document.getElementById("goalLabel").textContent=Math.round(goal).toLocaleString("ru-RU")+" ₽";
+})();
+</script></body></html>

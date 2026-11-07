@@ -32,13 +32,13 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
 <defs>
 <linearGradient id="barPatch" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#03102d"/><stop offset=".52" stop-color="#061c55"/><stop offset="1" stop-color="#002d86"/></linearGradient>
 <clipPath id="flaskInterior"><path d="M780 704 Q794 695 814 697 Q836 701 855 703 Q879 700 901 696 Q925 694 946 699 Q970 704 985 715 L986 741 Q980 759 968 774 Q950 787 929 795 Q906 802 882 803 Q858 801 835 794 Q815 784 799 770 Q788 752 781 733 Z"/></clipPath>
-<linearGradient id="cavity" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#123b62"/><stop offset=".45" stop-color="#0d3156"/><stop offset="1" stop-color="#092849"/></linearGradient>
+<linearGradient id="cavity" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#17618c"/><stop offset=".42" stop-color="#104f7b"/><stop offset="1" stop-color="#0b3e69"/></linearGradient>
 <linearGradient id="water" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8ff8ff"/><stop offset=".12" stop-color="#25d8ff"/><stop offset=".55" stop-color="#078eea"/><stop offset="1" stop-color="#0754c9"/></linearGradient>
 <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
 </defs>
 <rect x="285" y="674" width="350" height="91" fill="url(#barPatch)"/><rect x="1135" y="674" width="395" height="91" fill="url(#barPatch)"/>
 <g clip-path="url(#flaskInterior)">
-<rect x="770" y="690" width="225" height="120" fill="url(#cavity)"/><path d="M795 716 Q835 704 875 710 T965 716" fill="none" stroke="#4ca9e8" stroke-opacity=".20" stroke-width="5"/>
+<rect x="770" y="690" width="225" height="120" fill="url(#cavity)" opacity=".82"/><ellipse cx="882" cy="735" rx="95" ry="38" fill="#4ba9d8" opacity=".10"/><path d="M795 727 Q840 712 882 720 T965 727" fill="none" stroke="#9adfff" stroke-opacity=".22" stroke-width="3"/><path d="M795 716 Q835 704 875 710 T965 716" fill="none" stroke="#4ca9e8" stroke-opacity=".20" stroke-width="5"/>
 <rect id="waterRect" x="770" y="758" width="225" height="55" fill="url(#water)"/>
 <path id="waveA" class="wave-line" d="M778 758 Q805 753 830 758 T882 758 T934 758 T986 758"/>
 <path id="waveB" class="wave-shine" d="M778 762 Q805 757 830 762 T882 762 T934 762 T986 762"/>

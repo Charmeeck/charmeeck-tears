@@ -28,15 +28,19 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
 <svg class="liquid-svg" viewBox="0 0 1774 887" preserveAspectRatio="none" aria-hidden="true" >
 <defs>
 <linearGradient id="barPatch" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#03102d"/><stop offset=".52" stop-color="#061c55"/><stop offset="1" stop-color="#002d86"/></linearGradient>
-<clipPath id="flaskInterior"><path d="M780 704 Q794 695 814 697 Q836 701 855 703 Q879 700 901 696 Q925 694 946 699 Q970 704 985 715 L986 741 Q980 759 968 774 Q950 787 929 795 Q906 802 882 803 Q858 801 835 794 Q815 784 799 770 Q788 752 781 733 Z"/></clipPath>
+<clipPath id="flaskInterior"><path d="M757 681 Q775 674 799 678 Q826 682 851 681 Q881 678 906 678 Q940 679 966 689 L979 716 Q983 747 971 775 Q957 799 930 813 Q900 826 869 826 Q836 823 808 808 Q780 790 765 765 Q753 739 752 711 Z"/></clipPath>
 <linearGradient id="cavity" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#287eaa"/><stop offset=".42" stop-color="#1c6997"/><stop offset="1" stop-color="#14557f"/></linearGradient>
 <linearGradient id="water" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8ff8ff"/><stop offset=".12" stop-color="#25d8ff"/><stop offset=".55" stop-color="#078eea"/><stop offset="1" stop-color="#0754c9"/></linearGradient>
 <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="softPatch" x="-12%" y="-35%" width="124%" height="170%"><feGaussianBlur stdDeviation="12"/></filter>
 </defs>
 <rect x="285" y="674" width="350" height="91" fill="url(#barPatch)" filter="url(#softPatch)"/><rect x="1135" y="674" width="395" height="91" fill="url(#barPatch)" filter="url(#softPatch)"/>
 <g clip-path="url(#flaskInterior)">
-<rect x="770" y="690" width="225" height="120" fill="url(#cavity)" opacity=".34"/>
-<rect id="waterRect" x="770" y="758" width="225" height="55" fill="url(#water)"/>
+<path d="M757 681 Q775 674 799 678 Q826 682 851 681 Q881 678 906 678 Q940 679 966 689 L979 716 Q983 747 971 775 Q957 799 930 813 Q900 826 869 826 Q836 823 808 808 Q780 790 765 765 Q753 739 752 711 Z" fill="url(#cavity)" opacity=".98"/>
+<rect id="waterRect" x="748" y="760" width="240" height="75" fill="url(#water)"/>
+<path id="waterSurface" d="M752 760 Q810 751 870 760 T983 760" fill="none" stroke="#b8ffff" stroke-width="3" opacity=".95" filter="url(#glow)"/>
+<g id="liquidBubbles" fill="#bafaff" stroke="#48dcff" stroke-width="2">
+<circle cx="817" cy="790" r="4" opacity=".7"/><circle cx="861" cy="805" r="3" opacity=".65"/><circle cx="916" cy="785" r="5" opacity=".7"/>
+</g>
 
 
 </g></svg>
@@ -50,9 +54,11 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
  const current=Math.max(0,Number(p.get("current")??3750)||0);
  const goal=Math.max(1,Number(p.get("goal")??10000)||10000);
  const pct=Math.max(0,Math.min(100,current/goal*100));
- const bottom=837,top=704,level=bottom-(bottom-top)*pct/100;
+ const bottom=826,top=681,level=bottom-(bottom-top)*pct/100;
  const rect=document.getElementById("waterRect");
- rect.setAttribute("y",level.toFixed(1));rect.setAttribute("height",(bottom-level+8).toFixed(1));
+ rect.setAttribute("y",level.toFixed(1));rect.setAttribute("height",(bottom-level+10).toFixed(1));
+ const surface=document.getElementById("waterSurface");
+ surface.setAttribute("d",`M752 ${level.toFixed(1)} Q810 ${(level-8).toFixed(1)} 870 ${level.toFixed(1)} T983 ${level.toFixed(1)}`);
 
  document.getElementById("currentLabel").textContent=Math.round(current).toLocaleString("ru-RU")+" ₽";
  document.getElementById("goalLabel").textContent=Math.round(goal).toLocaleString("ru-RU")+" ₽";

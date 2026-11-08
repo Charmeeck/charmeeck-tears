@@ -10,7 +10,7 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
 .art{position:relative;width:min(100vw,200vh);aspect-ratio:1774/887;overflow:hidden}
 .art img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain;user-select:none;z-index:3}
 .liquid-svg{position:absolute;inset:0;width:100%;height:100%;z-index:4;pointer-events:none}
-#waterRect{transition:y .9s ease}
+#waterRect{transition:d .9s ease}
 .bubble:nth-of-type(4){animation-delay:1.9s}
 #waterSurface{animation:surface-wave 2.6s ease-in-out infinite alternate;transform-origin:center}
 #liquidBubbles circle{animation:bubble-rise 3.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
@@ -21,10 +21,6 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
 .live-label{position:absolute;top:78%;z-index:6;color:#f5fbff;font-family:Georgia,serif;font-size:clamp(18px,2.65vw,47px);line-height:1;white-space:nowrap;text-shadow:0 0 7px rgba(140,205,255,.45);pointer-events:none}
 .current-label{left:16%;width:17%;text-align:center}
 .goal-label{left:67%;width:20%;text-align:center}
-.falling-drop{position:absolute;left:calc(49.8% - 10px);top:38%;width:clamp(10px,1.05vw,19px);height:clamp(17px,1.8vw,32px);opacity:0;z-index:4;pointer-events:none;transform:translateX(-50%) scale(.72);filter:drop-shadow(0 0 5px rgba(20,180,255,.95));animation:drop-fall 3s cubic-bezier(.35,.05,.55,1) infinite}
-.falling-drop:before{content:"";position:absolute;inset:0;background:linear-gradient(118deg,#f5ffff 0%,#a9f4ff 15%,#48d9ff 34%,#079cf0 57%,#0872db 77%,#e8ffff 100%);border:1px solid rgba(222,255,255,.98);clip-path:polygon(50% 0%,68% 24%,86% 48%,98% 69%,94% 83%,80% 95%,58% 100%,39% 98%,19% 90%,6% 76%,3% 64%,15% 43%,34% 19%);border-radius:50%;box-shadow:inset 2px 0 4px rgba(255,255,255,.8)}
-.falling-drop:after{content:"";position:absolute;left:27%;top:26%;width:3px;height:38%;border-radius:100%;background:linear-gradient(to bottom,rgba(255,255,255,.98),rgba(255,255,255,.15));filter:blur(.35px)}
-@keyframes drop-fall{0%,10%{opacity:0;top:38%;transform:translateX(-50%) translateY(-3px) rotate(-8deg) scale(.48)}16%{opacity:1;top:38.5%;transform:translateX(-50%) translateY(0) rotate(-3deg) scale(.9)}32%{opacity:1;top:44%;transform:translateX(calc(-50% + 1px)) rotate(1deg) scale(1)}50%{opacity:1;top:50%;transform:translateX(calc(-50% - 1px)) rotate(2deg) scale(.98)}67%{opacity:1;top:56%;transform:translateX(-50%) rotate(1deg) scale(.9)}73%{opacity:.9;top:58%;transform:translateX(-50%) scale(.72)}78%,100%{opacity:0;top:59%;transform:translateX(-50%) translateY(4px) scale(.2)}}
 @keyframes wave{from{transform:translateX(-3px) translateY(1px)}to{transform:translateX(3px) translateY(-2px)}}
 @keyframes wave2{from{transform:translateX(2px)}to{transform:translateX(-2px)}}
 @keyframes bubble{0%{opacity:0;transform:translateY(8px)}25%{opacity:.9}100%{opacity:0;transform:translateY(-28px)}}
@@ -35,13 +31,13 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
 <defs>
 <linearGradient id="barPatch" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#03102d"/><stop offset=".52" stop-color="#061c55"/><stop offset="1" stop-color="#002d86"/></linearGradient>
 <clipPath id="flaskInterior"><path d="M757 681 Q775 674 799 678 Q826 682 851 681 Q881 678 906 678 Q940 679 966 689 L979 716 Q983 747 971 775 Q957 799 930 813 Q900 826 869 826 Q836 823 808 808 Q780 790 765 765 Q753 739 752 711 Z"/></clipPath>
-<linearGradient id="cavity" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#287eaa"/><stop offset=".42" stop-color="#1c6997"/><stop offset="1" stop-color="#14557f"/></linearGradient>
+<linearGradient id="cavity" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3299c8"/><stop offset=".42" stop-color="#167db5"/><stop offset="1" stop-color="#0868a9"/></linearGradient>
 <linearGradient id="water" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d8ffff"/><stop offset=".07" stop-color="#63edff"/><stop offset=".2" stop-color="#20cfff"/><stop offset=".58" stop-color="#078eea"/><stop offset="1" stop-color="#0754c9"/></linearGradient>
 <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><filter id="softPatch" x="-12%" y="-35%" width="124%" height="170%"><feGaussianBlur stdDeviation="12"/></filter>
 </defs>
 <rect x="285" y="674" width="350" height="91" fill="url(#barPatch)" filter="url(#softPatch)"/><rect x="1135" y="674" width="395" height="91" fill="url(#barPatch)" filter="url(#softPatch)"/>
 <g clip-path="url(#flaskInterior)">
-<path d="M757 681 Q775 674 799 678 Q826 682 851 681 Q881 678 906 678 Q940 679 966 689 L979 716 Q983 747 971 775 Q957 799 930 813 Q900 826 869 826 Q836 823 808 808 Q780 790 765 765 Q753 739 752 711 Z" fill="url(#cavity)" opacity=".98"/>
+<path d="M757 681 Q775 674 799 678 Q826 682 851 681 Q881 678 906 678 Q940 679 966 689 L979 716 Q983 747 971 775 Q957 799 930 813 Q900 826 869 826 Q836 823 808 808 Q780 790 765 765 Q753 739 752 711 Z" fill="url(#cavity)" opacity="1"/>
 <path id="waterRect" d="M752 760 Q810 752 870 760 T983 760 L983 840 L752 840 Z" fill="url(#water)"/>
 <path id="waterSurface" d="M752 760 Q810 751 870 760 T983 760" fill="none" stroke="#b8ffff" stroke-width="3" opacity=".95" filter="url(#glow)"/>
 <g id="liquidBubbles" fill="#bafaff" stroke="#48dcff" stroke-width="2">
@@ -52,7 +48,7 @@ html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden
 </g></svg>
 <img src="./assets/tears_base_layered_v4.png" alt="Донат-бар «Слёзы»">
 
-<div class="live-label current-label" id="currentLabel">3 750 ₽</div><div class="live-label goal-label" id="goalLabel">10 000 ₽</div><span class="falling-drop" aria-hidden="true"></span>
+<div class="live-label current-label" id="currentLabel">3 750 ₽</div><div class="live-label goal-label" id="goalLabel">10 000 ₽</div>
 </div></div>
 <script>
 (function(){

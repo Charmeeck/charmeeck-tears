@@ -68,39 +68,3 @@ if(password){$('adminPassword').value=password;status().then(()=>{dashboard();re
 if(new URLSearchParams(location.search).get('connected')==='1')history.replaceState({},'',location.pathname);
 })();
 </script></body></html>
-),'');
-const $=id=>document.getElementById(id);
-let password=sessionStorage.getItem('tearsAdminPassword')||'';
-const hide=id=>{$(id).style.display='none';$(id).textContent='';};
-const fail=(id,msg)=>{$(id).textContent=msg;$(id).style.display='block';};
-async function api(path,method='GET',body=null){
-if(!base||base.includes('REPLACE-WITH-YOUR-WORKER'))throw new Error('Сначала укажи адрес Worker в config.js.');
-const res=await fetch(base+path,{method,cache:'no-store',headers:{Authorization:'Bearer '+password,'Content-Type':'application/json'},body:body===null?undefined:JSON.stringify(body)});
-const data=await res.json().catch(()=>({}));if(!res.ok||data.ok===false)throw new Error(data.error||('HTTP '+res.status));return data;
-}
-function dashboard(){ $('loginCard').style.display='none';$('dashboard').style.display='block';}
-async function status(){
-const r=await api('/api/admin/status');const s=r.settings||{};
-$('currentAmount').value=s.current_amount??0;$('goalAmount').value=s.goal_amount??10000;$('currency').value=s.currency||'RUB';
-$('connectionPill').textContent=r.connected?'DonationAlerts подключён':'Не подключён';
-$('connectionText').textContent=r.connected?'Аккаунт: '+(r.streamer_name||'подключён')+'. Состояние приёмника: '+(r.listener?.state||'неизвестно')+'.':'Нажми «Подключить DonationAlerts».';
-if(r.listener?.last_error)$('connectionText').textContent+=' Ошибка: '+r.listener.last_error;
-}
-async function donations(){
-const r=await api('/api/admin/donations'),rows=r.donations||[];
-if(!rows.length){$('donationsTable').textContent='Пока нет записей.';return;}
-const table=document.createElement('table'),head=document.createElement('tr');
-['Дата','Отправитель','Сумма','Валюта','Зачтён'].forEach(x=>{const th=document.createElement('th');th.textContent=x;head.appendChild(th);});table.appendChild(head);
-rows.forEach(item=>{const tr=document.createElement('tr');[item.created_at,item.username,Number(item.amount).toLocaleString('ru-RU'),item.currency,Number(item.counted)?'Да':'Нет'].forEach(v=>{const td=document.createElement('td');td.textContent=String(v??'');tr.appendChild(td);});table.appendChild(tr);});
-$('donationsTable').replaceChildren(table);
-}
-$('loginBtn').onclick=async()=>{hide('loginError');password=$('adminPassword').value;try{await status();sessionStorage.setItem('tearsAdminPassword',password);dashboard();await donations();}catch(e){password='';fail('loginError',e.message);}};
-$('connectBtn').onclick=async()=>{hide('connectError');try{const r=await api('/api/admin/connect-url','POST',{});sessionStorage.setItem('tearsAdminPassword',password);location.href=r.authorize_url;}catch(e){fail('connectError',e.message);}};
-$('disconnectBtn').onclick=async()=>{if(!confirm('Отключить аккаунт DonationAlerts?'))return;try{await api('/api/admin/disconnect','POST',{});await status();}catch(e){fail('connectError',e.message);}};
-$('saveBtn').onclick=async()=>{hide('settingsError');try{const r=await api('/api/admin/settings','POST',{current_amount:Number($('currentAmount').value),goal_amount:Number($('goalAmount').value),currency:$('currency').value});$('settingsStatus').textContent='Сохранено. Текущая сумма: '+Number(r.settings.current_amount).toLocaleString('ru-RU')+' '+r.settings.currency;$('settingsStatus').style.display='block';await status();}catch(e){fail('settingsError',e.message);}};
-$('refreshDonations').onclick=()=>donations().catch(e=>fail('settingsError',e.message));
-$('logoutBtn').onclick=()=>{sessionStorage.removeItem('tearsAdminPassword');password='';location.reload();};
-if(password){$('adminPassword').value=password;status().then(()=>{dashboard();return donations();}).catch(()=>{sessionStorage.removeItem('tearsAdminPassword');password='';});}
-if(new URLSearchParams(location.search).get('connected')==='1')history.replaceState({},'',location.pathname);
-})();
-</script></body></html>

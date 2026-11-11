@@ -1,6 +1,7 @@
 'use strict';
 (() => {
-  const workerBase = String(window.TEARS_DA_WORKER || '').replace(new RegExp('/+;
+  let workerBase = String(window.TEARS_DA_WORKER || '');
+  while (workerBase.endsWith('/')) workerBase = workerBase.slice(0, -1);
   if (!workerBase || workerBase.includes('REPLACE-WITH-YOUR-WORKER')) {
     console.warn('[Tears] Сначала укажи URL Cloudflare Worker в config.js.');
     return;

@@ -1,0 +1,14 @@
+{
+  "name": "tears-donationalerts-cloudflare",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "db:create": "wrangler d1 create tears-donations",
+    "db:migrate": "wrangler d1 migrations apply tears-donations --remote"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

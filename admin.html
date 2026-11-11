@@ -32,7 +32,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:9px 7px;b
 </section></main>
 <script src="./config.js"></script><script>
 (() => {
-const base=String(window.TEARS_DA_WORKER||'').replace(new RegExp('/+;
+let base=String(window.TEARS_DA_WORKER||'');while(base.endsWith('/'))base=base.slice(0,-1);
 const $=id=>document.getElementById(id);
 let password=sessionStorage.getItem('tearsAdminPassword')||'';
 const hide=id=>{$(id).style.display='none';$(id).textContent='';};

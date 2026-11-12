@@ -375,7 +375,24 @@ const formatAmount=value=>fmt.format(value)+' '+(currencySymbols[currency]||curr
     return true;
   }
 
-    window.TearsWidget={\n    setBaseline:(state={})=>{\n      const nextCurrent=Number(state.current_amount);\n      const nextGoal=Number(state.goal_amount);\n      if(Number.isFinite(nextCurrent)&&nextCurrent>=0)current=nextCurrent;\n      if(Number.isFinite(nextGoal)&&nextGoal>0)goal=nextGoal;\n      const nextCurrency=String(state.currency||currency||'RUB').toUpperCase();\n      if(currencySymbols[nextCurrency])currency=nextCurrency;\n      document.getElementById('currentLabel').textContent=formatAmount(current);\n      document.getElementById('goalLabel').textContent=formatAmount(goal);\n      transitionFrom=shownPercent;\n      targetPercent=clamp(current/goal*100,0,100);\n      transitionStart=performance.now();\n      if(targetPercent>=99.95){wasFull=false;completionStarted=-1;}\n    },\n    triggerDonation:(amount,donorName,eventId)=>triggerDonation(amount,donorName,eventId),\n    getState:()=>({current,goal,currency,percent:clamp(current/goal*100,0,100)})\n  };
+    window.TearsWidget={
+    setBaseline:(state={})=>{
+      const nextCurrent=Number(state.current_amount);
+      const nextGoal=Number(state.goal_amount);
+      if(Number.isFinite(nextCurrent)&&nextCurrent>=0)current=nextCurrent;
+      if(Number.isFinite(nextGoal)&&nextGoal>0)goal=nextGoal;
+      const nextCurrency=String(state.currency||currency||'RUB').toUpperCase();
+      if(currencySymbols[nextCurrency])currency=nextCurrency;
+      document.getElementById('currentLabel').textContent=formatAmount(current);
+      document.getElementById('goalLabel').textContent=formatAmount(goal);
+      transitionFrom=shownPercent;
+      targetPercent=clamp(current/goal*100,0,100);
+      transitionStart=performance.now();
+      if(targetPercent>=99.95){wasFull=false;completionStarted=-1;}
+    },
+    triggerDonation:(amount,donorName,eventId)=>triggerDonation(amount,donorName,eventId),
+    getState:()=>({current,goal,currency,percent:clamp(current/goal*100,0,100)})
+  };
   window.addEventListener('tears:donation',event=>{
     const data=event.detail||{};
     triggerDonation(data.amount??data.value,data.username??data.donor??data.name??'',data.id??data.eventId??'');

@@ -185,13 +185,15 @@ async function api(request, env) {
     const body = await readJson(request);
     const amounts = validateAmounts(body);
     if (amounts.error) return json({ ok: false, error: amounts.error }, 400);
+    const clientNonce = String(body.client_nonce || '');
+    if (!/^[a-f0-9]{64}$/i.test(clientNonce)) return json({ ok: false, error: 'Не удалось подтвердить браузерную сессию. Обнови страницу и попробуй ещё раз.' }, 400);
 
     await env.DB.prepare('DELETE FROM oauth_state WHERE expires_at<?').bind(Date.now()).run();
     const state = randomHex(32);
     await env.DB.prepare(
-      'INSERT INTO oauth_state (state,current_amount,goal_amount,currency,expires_at,created_at) VALUES (?,?,?,?,?,?)'
+      'INSERT INTO oauth_state (state,current_amount,goal_amount,currency,client_nonce,expires_at,created_at) VALUES (?,?,?,?,?,?,?)'
     ).bind(
-      state, amounts.current, amounts.goal, amounts.currency,
+      state, amounts.current, amounts.goal, amounts.currency, clientNonce,
       Date.now() + 10 * 60 * 1000, new Date().toISOString()
     ).run();
 
@@ -213,7 +215,7 @@ async function api(request, env) {
     if (!code || !state) return new Response('DonationAlerts не вернул code или state.', { status: 400 });
 
     const savedState = await env.DB.prepare(
-      'SELECT current_amount,goal_amount,currency,expires_at FROM oauth_state WHERE state=?'
+      'SELECT current_amount,goal_amount,currency,client_nonce,expires_at FROM oauth_state WHERE state=?'
     ).bind(state).first();
     await env.DB.prepare('DELETE FROM oauth_state WHERE state=?').bind(state).run();
     if (!savedState || Number(savedState.expires_at) < Date.now()) {
@@ -290,7 +292,7 @@ async function api(request, env) {
       if (!started.ok) throw new Error('Аккаунт авторизован, но не удалось запустить приём донатов.');
 
       const destination = new URL(String(env.ADMIN_PAGE_URL || ''));
-      destination.hash = 'session=' + encodeURIComponent(sessionToken);
+      destination.hash = 'session=' + encodeURIComponent(sessionToken) + '&nonce=' + encodeURIComponent(String(savedState.client_nonce));
       return Response.redirect(destination.toString(), 302);
     } catch (error) {
       console.error('DonationAlerts OAuth callback failed:', error && error.message || error);

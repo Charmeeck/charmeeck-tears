@@ -175,7 +175,7 @@ async function api(request, env) {
   const path = url.pathname;
 
   if (path === '/health' && request.method === 'GET') {
-    return json({ ok: true, service: 'Tears multi-stream DonationAlerts Worker', version: '2.1' });
+    return json({ ok: true, service: 'Tears multi-stream DonationAlerts Worker', version: '2.2' });
   }
 
   if (path === '/api/oauth/start' && request.method === 'POST') {

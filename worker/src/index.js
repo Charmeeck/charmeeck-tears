@@ -505,10 +505,14 @@ export class DonationAlertsListener extends DurableObject {
       const listenerState = await this.ctx.storage.get('listener_state');
       const lastError = await this.ctx.storage.get('last_error');
       const lastConnectedAt = await this.ctx.storage.get('last_connected_at');
+      const lastMessageAt = await this.ctx.storage.get('last_message_at');
+      const lastDonationAt = await this.ctx.storage.get('last_donation_at');
       return Response.json({
         state: listenerState || 'not-started',
         last_error: lastError || '',
-        last_connected_at: lastConnectedAt || ''
+        last_connected_at: lastConnectedAt || '',
+        last_message_at: lastMessageAt || '',
+        last_donation_at: lastDonationAt || ''
       });
     }
     return new Response('Not found', { status: 404 });
@@ -650,25 +654,47 @@ export class DonationAlertsListener extends DurableObject {
       let message;
       try { message = JSON.parse(chunk); } catch (_) { continue; }
 
+      const now = new Date().toISOString();
+      await this.ctx.storage.put('last_message_at', now);
+
+      // Initial Centrifugo connection acknowledgement: contains the assigned client UUID.
       if (message && message.result && message.result.client && !this.subscribePending) {
         this.clientId = String(message.result.client);
         this.subscribePending = true;
         await this.subscribeToDonations();
         continue;
       }
-      if (message && message.id === 2 && message.result) {
+
+      // DonationAlerts' documented private-channel acknowledgement may not echo request id=2.
+      const ackChannel = String(message && message.result && message.result.channel || '');
+      if (
+        message && message.result &&
+        (message.id === 2 || (message.result.type === 1 && ackChannel.startsWith('$alerts:donation_')))
+      ) {
         this.retryCount = 0;
         await this.ctx.storage.put('listener_state', 'connected');
-        await this.ctx.storage.put('last_connected_at', new Date().toISOString());
+        await this.ctx.storage.put('last_connected_at', now);
         await this.ctx.storage.delete('last_error');
         this.broadcast({ type: 'status', state: 'connected', message: 'DonationAlerts подключён.' });
-        continue;
+        // A normal subscription acknowledgement contains result.data.info, not a donation.
+        if (message.result.type === 1 && message.result.data && message.result.data.info) continue;
       }
-      const publication = message && message.push && message.push.pub && message.push.pub.data ||
+
+      // DonationAlerts publishes the donation resource in result.data.data.
+      // Other Centrifugo/proxy envelopes can wrap it in pub.data or push.pub.data.
+      const publicationChannel = String(
+        message && message.result && message.result.channel ||
+        message && message.push && message.push.channel ||
+        message && message.channel || ''
+      );
+      const publication =
+        message && message.push && message.push.pub && message.push.pub.data ||
         message && message.result && message.result.pub && message.result.pub.data ||
-        message && message.pub && message.pub.data;
+        message && message.pub && message.pub.data ||
+        (publicationChannel.startsWith('$alerts:donation_') ? message : null);
       const donation = this.extractDonation(publication);
       if (donation) await this.recordDonation(donation);
+
       if (message && (message.disconnect || message.refresh || message.push && (message.push.disconnect || message.push.refresh))) {
         this.closeDonationSocket();
         await this.scheduleRetry();
@@ -677,15 +703,32 @@ export class DonationAlertsListener extends DurableObject {
   }
 
   extractDonation(value) {
-    const queue = [value];
+    const queue = [{ value, depth: 0 }];
     const visited = new Set();
     while (queue.length) {
-      const item = queue.shift();
-      if (!item || typeof item !== 'object' || visited.has(item)) continue;
+      const entry = queue.shift();
+      const item = entry && entry.value;
+      if (!item || typeof item !== 'object' || visited.has(item) || entry.depth > 8) continue;
       visited.add(item);
-      if (item.id != null && item.amount != null && item.currency != null) return item;
-      if (item.data && typeof item.data === 'object') queue.push(item.data);
-      if (item.donation && typeof item.donation === 'object') queue.push(item.donation);
+
+      if (
+        item.id != null &&
+        item.amount != null &&
+        item.currency != null &&
+        Number.isFinite(Number(item.amount))
+      ) {
+        return item;
+      }
+
+      if (Array.isArray(item)) {
+        for (const child of item) {
+          if (child && typeof child === 'object') queue.push({ value: child, depth: entry.depth + 1 });
+        }
+      } else {
+        for (const child of Object.values(item)) {
+          if (child && typeof child === 'object') queue.push({ value: child, depth: entry.depth + 1 });
+        }
+      }
     }
     return null;
   }

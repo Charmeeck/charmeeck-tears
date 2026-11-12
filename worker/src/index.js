@@ -507,12 +507,26 @@ export class DonationAlertsListener extends DurableObject {
       const lastConnectedAt = await this.ctx.storage.get('last_connected_at');
       const lastMessageAt = await this.ctx.storage.get('last_message_at');
       const lastDonationAt = await this.ctx.storage.get('last_donation_at');
+      const lastFrameKind = await this.ctx.storage.get('last_frame_kind');
+      const lastFrameKeys = await this.ctx.storage.get('last_frame_keys');
+      const lastPublicationAt = await this.ctx.storage.get('last_publication_at');
+      const lastPublicationChannel = await this.ctx.storage.get('last_publication_channel');
+      const lastPayloadKind = await this.ctx.storage.get('last_payload_kind');
+      const lastPayloadKeys = await this.ctx.storage.get('last_payload_keys');
+      const lastParserResult = await this.ctx.storage.get('last_parser_result');
       return Response.json({
         state: listenerState || 'not-started',
         last_error: lastError || '',
         last_connected_at: lastConnectedAt || '',
         last_message_at: lastMessageAt || '',
-        last_donation_at: lastDonationAt || ''
+        last_donation_at: lastDonationAt || '',
+        last_frame_kind: lastFrameKind || '',
+        last_frame_keys: lastFrameKeys || '',
+        last_publication_at: lastPublicationAt || '',
+        last_publication_channel: lastPublicationChannel || '',
+        last_payload_kind: lastPayloadKind || '',
+        last_payload_keys: lastPayloadKeys || '',
+        last_parser_result: lastParserResult || ''
       });
     }
     return new Response('Not found', { status: 404 });
@@ -652,20 +666,23 @@ export class DonationAlertsListener extends DurableObject {
     const messages = String(raw || '').split(/\r?\n/).filter(Boolean);
     for (const chunk of messages) {
       let message;
-      try { message = JSON.parse(chunk); } catch (_) { continue; }
+      try { message = JSON.parse(chunk); } catch (_) {
+        await this.ctx.storage.put('last_frame_kind', 'invalid-json');
+        continue;
+      }
 
       const now = new Date().toISOString();
       await this.ctx.storage.put('last_message_at', now);
+      await this.ctx.storage.put('last_frame_keys', Object.keys(message || {}).slice(0, 12).join(','));
 
-      // Initial Centrifugo connection acknowledgement: contains the assigned client UUID.
       if (message && message.result && message.result.client && !this.subscribePending) {
         this.clientId = String(message.result.client);
         this.subscribePending = true;
+        await this.ctx.storage.put('last_frame_kind', 'connection-ack');
         await this.subscribeToDonations();
         continue;
       }
 
-      // DonationAlerts' documented private-channel acknowledgement may not echo request id=2.
       const ackChannel = String(message && message.result && message.result.channel || '');
       if (
         message && message.result &&
@@ -676,26 +693,60 @@ export class DonationAlertsListener extends DurableObject {
         await this.ctx.storage.put('last_connected_at', now);
         await this.ctx.storage.delete('last_error');
         this.broadcast({ type: 'status', state: 'connected', message: 'DonationAlerts подключён.' });
-        // A normal subscription acknowledgement contains result.data.info, not a donation.
+        await this.ctx.storage.put('last_frame_kind', 'subscription-ack');
         if (message.result.type === 1 && message.result.data && message.result.data.info) continue;
       }
 
-      // DonationAlerts publishes the donation resource in result.data.data.
-      // Other Centrifugo/proxy envelopes can wrap it in pub.data or push.pub.data.
-      const publicationChannel = String(
-        message && message.result && message.result.channel ||
-        message && message.push && message.push.channel ||
-        message && message.channel || ''
-      );
+      const push = message && message.push || null;
       const publication =
-        message && message.push && message.push.pub && message.push.pub.data ||
-        message && message.result && message.result.pub && message.result.pub.data ||
-        message && message.pub && message.pub.data ||
-        (publicationChannel.startsWith('$alerts:donation_') ? message : null);
-      const donation = this.extractDonation(publication);
-      if (donation) await this.recordDonation(donation);
+        push && push.pub ||
+        message && message.result && message.result.pub ||
+        message && message.pub ||
+        null;
+      const publicationChannel = String(
+        push && push.channel ||
+        publication && publication.channel ||
+        message && message.result && message.result.channel ||
+        message && message.channel ||
+        ''
+      );
 
-      if (message && (message.disconnect || message.refresh || message.push && (message.push.disconnect || message.push.refresh))) {
+      if (publication) {
+        await this.ctx.storage.put('last_publication_at', now);
+        await this.ctx.storage.put('last_publication_channel', publicationChannel.slice(0, 160));
+        await this.ctx.storage.put('last_frame_kind', 'publication');
+
+        let payload = publication;
+        if (Object.prototype.hasOwnProperty.call(publication, 'data')) payload = publication.data;
+        if (typeof payload === 'string') {
+          await this.ctx.storage.put('last_payload_kind', 'string');
+        } else if (payload && typeof payload === 'object') {
+          await this.ctx.storage.put('last_payload_kind', 'object');
+          await this.ctx.storage.put('last_payload_keys', Object.keys(payload).slice(0, 20).join(','));
+        } else {
+          await this.ctx.storage.put('last_payload_kind', typeof payload);
+          await this.ctx.storage.put('last_payload_keys', '');
+        }
+
+        const donation = this.extractDonation(payload);
+        await this.ctx.storage.put('last_parser_result', donation ? 'donation-found' : 'no-donation-object');
+        if (donation) {
+          await this.recordDonation(donation);
+        } else {
+          // Fallback: some event envelopes put the resource beside the publication data.
+          const fallback = this.extractDonation(message);
+          if (fallback) {
+            await this.ctx.storage.put('last_parser_result', 'donation-found-in-envelope');
+            await this.recordDonation(fallback);
+          }
+        }
+      } else if (message && Object.keys(message).length === 0) {
+        await this.ctx.storage.put('last_frame_kind', 'heartbeat');
+      } else if (!(message && message.result && message.id === 2)) {
+        await this.ctx.storage.put('last_frame_kind', 'service-message');
+      }
+
+      if (message && (message.disconnect || message.refresh || push && (push.disconnect || push.refresh))) {
         this.closeDonationSocket();
         await this.scheduleRetry();
       }
@@ -707,8 +758,13 @@ export class DonationAlertsListener extends DurableObject {
     const visited = new Set();
     while (queue.length) {
       const entry = queue.shift();
-      const item = entry && entry.value;
-      if (!item || typeof item !== 'object' || visited.has(item) || entry.depth > 8) continue;
+      let item = entry && entry.value;
+      if (typeof item === 'string') {
+        const trimmed = item.trim();
+        if (!trimmed || (!trimmed.startsWith('{') && !trimmed.startsWith('['))) continue;
+        try { item = JSON.parse(trimmed); } catch (_) { continue; }
+      }
+      if (!item || typeof item !== 'object' || visited.has(item) || entry.depth > 10) continue;
       visited.add(item);
 
       if (
@@ -722,11 +778,15 @@ export class DonationAlertsListener extends DurableObject {
 
       if (Array.isArray(item)) {
         for (const child of item) {
-          if (child && typeof child === 'object') queue.push({ value: child, depth: entry.depth + 1 });
+          if (child && (typeof child === 'object' || typeof child === 'string')) {
+            queue.push({ value: child, depth: entry.depth + 1 });
+          }
         }
       } else {
         for (const child of Object.values(item)) {
-          if (child && typeof child === 'object') queue.push({ value: child, depth: entry.depth + 1 });
+          if (child && (typeof child === 'object' || typeof child === 'string')) {
+            queue.push({ value: child, depth: entry.depth + 1 });
+          }
         }
       }
     }

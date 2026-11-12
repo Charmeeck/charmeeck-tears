@@ -1,70 +1,422 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Слёзы — панель DonationAlerts</title>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Слёзы — подключение DonationAlerts</title>
 <style>
-*{box-sizing:border-box}body{margin:0;padding:26px 14px;background:#071629;color:#effaff;font:15px/1.5 system-ui,Segoe UI,sans-serif}
-main{max-width:900px;margin:auto}h1{margin:0 0 6px;font-size:27px}.muted,.small{color:#aac6d8}.small{font-size:13px;word-break:break-word}
-.card{background:#0d2238;border:1px solid #286184;border-radius:15px;padding:20px;margin:15px 0}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}label{display:block;margin:12px 0 5px;font-weight:700}
-input,select{width:100%;padding:11px;border:1px solid #35617d;border-radius:8px;background:#06182a;color:#fff;font-size:15px}
-button{border:0;border-radius:9px;padding:11px 16px;background:#167eb4;color:white;font-weight:700;cursor:pointer;margin:7px 7px 0 0}
-button.secondary{background:#173b57;border:1px solid #3a6c8a}button.danger{background:#713248}button:disabled{opacity:.55}
-.pill{display:inline-block;padding:4px 10px;border-radius:999px;background:#123d59;color:#bdeeff;font-size:12px}
-.row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-.error{display:none;padding:11px;border-radius:8px;background:#482231;color:#ffe5ec;margin-top:12px}
-.status{display:none;padding:11px;border-radius:8px;background:#103b3b;color:#c7fff2;margin-top:12px}
-table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:9px 7px;border-bottom:1px solid #24465e;text-align:left}th{color:#9edfff}
-#dashboard{display:none}@media(max-width:650px){.grid{grid-template-columns:1fr}.card{padding:15px}}
-</style></head><body><main>
-<div class="row"><div><h1>Слёзы — DonationAlerts</h1><p class="muted">Панель владельца донат-бара. Сначала подключи свой аккаунт DonationAlerts.</p></div><span class="pill">GitHub Pages + Cloudflare</span></div>
-<section class="card" id="loginCard"><h2>Вход администратора</h2><p class="small">Введи пароль, который будет задан в Cloudflare командой wrangler secret put ADMIN_PASSWORD.</p>
-<label for="adminPassword">Пароль администратора</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Пароль Worker">
-<button id="loginBtn">Войти</button><div class="error" id="loginError"></div></section>
-<section id="dashboard">
-<div class="card"><div class="row"><h2>1. DonationAlerts</h2><span class="pill" id="connectionPill">Проверка…</span></div>
-<p id="connectionText" class="small">Проверяю подключение…</p><button id="connectBtn">Подключить / переподключить DonationAlerts</button><button id="disconnectBtn" class="danger">Отключить аккаунт</button>
-<p class="small">Для приложения DonationAlerts понадобятся разрешения oauth-user-show и oauth-donation-subscribe.</p><div class="error" id="connectError"></div></div>
-<div class="card"><h2>2. Сумма и цель</h2><div class="grid"><div><label for="currentAmount">Начальная / текущая сумма</label><input id="currentAmount" type="number" min="0" step="0.01" value="0"></div><div><label for="goalAmount">Цель сбора</label><input id="goalAmount" type="number" min="0.01" step="0.01" value="10000"></div></div>
-<label for="currency">Валюта</label><select id="currency"><option value="RUB">RUB — рубль</option><option value="USD">USD — доллар</option><option value="EUR">EUR — евро</option><option value="KZT">KZT — тенге</option><option value="UAH">UAH — гривна</option><option value="BYN">BYN — белорусский рубль</option><option value="BRL">BRL — реал</option><option value="TRY">TRY — лира</option></select>
-<p class="small">Все новые донаты в выбранной валюте будут прибавляться к сумме. Автоматической конвертации валют нет.</p><button id="saveBtn">Сохранить суммы</button><div class="error" id="settingsError"></div><div class="status" id="settingsStatus"></div></div>
-<div class="card"><div class="row"><h2>3. Последние донаты</h2><button id="refreshDonations" class="secondary">Обновить</button></div><div id="donationsTable" class="small">Пока нет записей.</div></div>
-<div class="card"><h2>4. Адрес для OBS</h2><p class="small">Для Browser Source используй адрес страницы /charmeeck-tears/widget/ (или локальный путь widget/index.html). Размер 1774 × 887. Пароль панели не добавляй в ссылку OBS.</p><button id="logoutBtn" class="secondary">Выйти</button></div>
-</section></main>
-<script src="./config.js"></script><script>
+:root{color-scheme:dark;--bg:#071629;--panel:#0d2238;--line:#285674;--text:#f1f8ff;--muted:#a8c4d8;--blue:#1685bd;--blue2:#145879;--good:#9be6cf;--bad:#ffd2dc}
+*{box-sizing:border-box}
+body{margin:0;padding:28px 14px;background:radial-gradient(circle at 50% 0,#143a59 0,#071629 45%);color:var(--text);font:15px/1.5 system-ui,Segoe UI,sans-serif}
+main{max-width:860px;margin:0 auto}
+h1{font-size:28px;line-height:1.2;margin:0 0 8px}
+h2{font-size:20px;margin:0 0 12px}
+p{margin:8px 0;color:var(--muted)}
+.card{margin:16px 0;padding:21px;background:rgba(13,34,56,.96);border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 34px #020b1555}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:15px}
+.pill{display:inline-flex;align-items:center;padding:4px 10px;border:1px solid #2f6e8c;border-radius:999px;color:#bceaff;font-size:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+label{display:block;margin:12px 0 5px;color:#c6dced;font-weight:650}
+input,select{width:100%;padding:12px 13px;border:1px solid #38627c;border-radius:9px;background:#061729;color:#fff;font:inherit;outline:none}
+input:focus,select:focus{border-color:#52b9ec;box-shadow:0 0 0 3px #1685bd33}
+button{border:1px solid transparent;border-radius:9px;padding:11px 16px;background:var(--blue);color:#fff;font:700 14px system-ui;cursor:pointer;margin:8px 8px 0 0}
+button.secondary{background:#163d59;border-color:#356783}
+button.warn{background:#532c40;border-color:#774158}
+button:disabled{opacity:.55;cursor:wait}
+.small{font-size:13px;color:var(--muted)}
+.status{display:none;padding:11px 13px;border-radius:9px;margin-top:12px;background:#12384d;color:#c9f0ff;word-break:break-word}
+.status.bad{background:#492a39;color:var(--bad)}
+.status.good{background:#103d3b;color:var(--good)}
+.url{padding:12px;background:#061729;border:1px solid #315b75;border-radius:9px;word-break:break-all;color:#c7edff}
+.row{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+th,td{text-align:left;padding:9px 7px;border-bottom:1px solid #24465e;vertical-align:top}
+th{color:#9edfff}
+.actions{display:flex;flex-wrap:wrap;gap:6px}
+@media(max-width:620px){.grid{grid-template-columns:1fr}.card{padding:16px}h1{font-size:24px}}
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div>
+      <h1>Слёзы — DonationAlerts</h1>
+      <p>Подключи свой аккаунт, задай суммы и получи личную ссылку для OBS.</p>
+    </div>
+    <span class="pill">Один общий сервис · отдельные настройки для каждого стримера</span>
+  </div>
+
+  <section class="card" id="connectCard">
+    <h2>1. Подключение DonationAlerts</h2>
+    <p>Каждый стример авторизует собственный аккаунт DonationAlerts. Чужие донаты и настройки ему недоступны.</p>
+    <div class="grid">
+      <div>
+        <label for="startCurrent">Начальная / текущая сумма</label>
+        <input id="startCurrent" type="number" min="0" step="0.01" value="0">
+      </div>
+      <div>
+        <label for="startGoal">Цель сбора</label>
+        <input id="startGoal" type="number" min="0.01" step="0.01" value="10000">
+      </div>
+    </div>
+    <label for="startCurrency">Валюта</label>
+    <select id="startCurrency">
+      <option value="RUB">RUB — рубль</option>
+      <option value="USD">USD — доллар</option>
+      <option value="EUR">EUR — евро</option>
+      <option value="KZT">KZT — тенге</option>
+      <option value="UAH">UAH — гривна</option>
+      <option value="BYN">BYN — белорусский рубль</option>
+      <option value="BRL">BRL — реал</option>
+      <option value="TRY">TRY — лира</option>
+    </select>
+    <button id="connectBtn">Подключить DonationAlerts</button>
+    <div id="connectError" class="status bad"></div>
+    <p class="small">Откроется сайт DonationAlerts. Войди в свой аккаунт и подтверди разрешения на просмотр профиля и подписку на новые донаты.</p>
+  </section>
+
+  <section class="card" id="dashboard" hidden>
+    <div class="row">
+      <div>
+        <h2>2. Твоя панель</h2>
+        <p>Аккаунт: <strong id="streamerName">—</strong></p>
+      </div>
+      <span class="pill" id="connectionState">Проверка подключения…</span>
+    </div>
+    <div class="grid">
+      <div>
+        <label for="currentAmount">Начальная / текущая сумма</label>
+        <input id="currentAmount" type="number" min="0" step="0.01">
+      </div>
+      <div>
+        <label for="goalAmount">Цель сбора</label>
+        <input id="goalAmount" type="number" min="0.01" step="0.01">
+      </div>
+    </div>
+    <label for="currency">Валюта</label>
+    <select id="currency">
+      <option value="RUB">RUB — рубль</option>
+      <option value="USD">USD — доллар</option>
+      <option value="EUR">EUR — евро</option>
+      <option value="KZT">KZT — тенге</option>
+      <option value="UAH">UAH — гривна</option>
+      <option value="BYN">BYN — белорусский рубль</option>
+      <option value="BRL">BRL — реал</option>
+      <option value="TRY">TRY — лира</option>
+    </select>
+    <div class="actions">
+      <button id="saveBtn">Сохранить суммы</button>
+      <button id="reconnectBtn" class="secondary">Переподключить DonationAlerts</button>
+      <button id="disconnectBtn" class="warn">Отключить DonationAlerts</button>
+    </div>
+    <div id="settingsStatus" class="status good"></div>
+    <div id="settingsError" class="status bad"></div>
+  </section>
+
+  <section class="card" id="obsCard" hidden>
+    <h2>3. Твоя ссылка для OBS</h2>
+    <p>Это персональная ссылка. Не публикуй её и не отправляй другим стримерам.</p>
+    <div id="obsUrl" class="url"></div>
+    <div class="actions">
+      <button id="copyUrlBtn">Скопировать ссылку</button>
+      <button id="rotateUrlBtn" class="secondary">Создать новую ссылку</button>
+    </div>
+    <p class="small">В OBS: Источник → Браузер → вставь ссылку. Размер: 1774 × 887. После смены ссылки обнови её в OBS.</p>
+    <div id="urlStatus" class="status good"></div>
+  </section>
+
+  <section class="card" id="donationsCard" hidden>
+    <div class="row">
+      <h2>4. Последние донаты</h2>
+      <button id="refreshBtn" class="secondary">Обновить</button>
+    </div>
+    <div id="donationsTable" class="small">Пока записей нет.</div>
+  </section>
+
+  <section class="card" id="accountCard" hidden>
+    <div class="row">
+      <div>
+        <h2>Сеанс</h2>
+        <p class="small">Сеанс сохраняется в этом браузере. На другом компьютере авторизуйся в DonationAlerts ещё раз.</p>
+      </div>
+      <button id="logoutBtn" class="secondary">Выйти из панели</button>
+    </div>
+  </section>
+  <p class="small" style="text-align:center">Секреты DonationAlerts не помещаются в ссылку OBS. У каждого стримера отдельные суммы, токены и история.</p>
+</main>
+
+<script src="./config.js"></script>
+<script>
 (() => {
-let base=String(window.TEARS_DA_WORKER||'');while(base.endsWith('/'))base=base.slice(0,-1);
-const $=id=>document.getElementById(id);
-let password=sessionStorage.getItem('tearsAdminPassword')||'';
-const hide=id=>{$(id).style.display='none';$(id).textContent='';};
-const fail=(id,msg)=>{$(id).textContent=msg;$(id).style.display='block';};
-async function api(path,method='GET',body=null){
-if(!base||base.includes('REPLACE-WITH-YOUR-WORKER'))throw new Error('Сначала укажи адрес Worker в config.js.');
-const res=await fetch(base+path,{method,cache:'no-store',headers:{Authorization:'Bearer '+password,'Content-Type':'application/json'},body:body===null?undefined:JSON.stringify(body)});
-const data=await res.json().catch(()=>({}));if(!res.ok||data.ok===false)throw new Error(data.error||('HTTP '+res.status));return data;
-}
-function dashboard(){ $('loginCard').style.display='none';$('dashboard').style.display='block';}
-async function status(){
-const r=await api('/api/admin/status');const s=r.settings||{};
-$('currentAmount').value=s.current_amount??0;$('goalAmount').value=s.goal_amount??10000;$('currency').value=s.currency||'RUB';
-$('connectionPill').textContent=r.connected?'DonationAlerts подключён':'Не подключён';
-$('connectionText').textContent=r.connected?'Аккаунт: '+(r.streamer_name||'подключён')+'. Состояние приёмника: '+(r.listener?.state||'неизвестно')+'.':'Нажми «Подключить DonationAlerts».';
-if(r.listener?.last_error)$('connectionText').textContent+=' Ошибка: '+r.listener.last_error;
-}
-async function donations(){
-const r=await api('/api/admin/donations'),rows=r.donations||[];
-if(!rows.length){$('donationsTable').textContent='Пока нет записей.';return;}
-const table=document.createElement('table'),head=document.createElement('tr');
-['Дата','Отправитель','Сумма','Валюта','Зачтён'].forEach(x=>{const th=document.createElement('th');th.textContent=x;head.appendChild(th);});table.appendChild(head);
-rows.forEach(item=>{const tr=document.createElement('tr');[item.created_at,item.username,Number(item.amount).toLocaleString('ru-RU'),item.currency,Number(item.counted)?'Да':'Нет'].forEach(v=>{const td=document.createElement('td');td.textContent=String(v??'');tr.appendChild(td);});table.appendChild(tr);});
-$('donationsTable').replaceChildren(table);
-}
-$('loginBtn').onclick=async()=>{hide('loginError');password=$('adminPassword').value;try{await status();sessionStorage.setItem('tearsAdminPassword',password);dashboard();await donations();}catch(e){password='';fail('loginError',e.message);}};
-$('connectBtn').onclick=async()=>{hide('connectError');try{const r=await api('/api/admin/connect-url','POST',{});sessionStorage.setItem('tearsAdminPassword',password);location.href=r.authorize_url;}catch(e){fail('connectError',e.message);}};
-$('disconnectBtn').onclick=async()=>{if(!confirm('Отключить аккаунт DonationAlerts?'))return;try{await api('/api/admin/disconnect','POST',{});await status();}catch(e){fail('connectError',e.message);}};
-$('saveBtn').onclick=async()=>{hide('settingsError');try{const r=await api('/api/admin/settings','POST',{current_amount:Number($('currentAmount').value),goal_amount:Number($('goalAmount').value),currency:$('currency').value});$('settingsStatus').textContent='Сохранено. Текущая сумма: '+Number(r.settings.current_amount).toLocaleString('ru-RU')+' '+r.settings.currency;$('settingsStatus').style.display='block';await status();}catch(e){fail('settingsError',e.message);}};
-$('refreshDonations').onclick=()=>donations().catch(e=>fail('settingsError',e.message));
-$('logoutBtn').onclick=()=>{sessionStorage.removeItem('tearsAdminPassword');password='';location.reload();};
-if(password){$('adminPassword').value=password;status().then(()=>{dashboard();return donations();}).catch(()=>{sessionStorage.removeItem('tearsAdminPassword');password='';});}
-if(new URLSearchParams(location.search).get('connected')==='1')history.replaceState({},'',location.pathname);
+  'use strict';
+  const workerBase = String(window.TEARS_DA_WORKER || '').replace(/\/+$/, '');
+  const SESSION_KEY = 'tears_owner_session_v2';
+  const OAUTH_NONCE_KEY = 'tears_oauth_nonce_v2';
+  const $ = id => document.getElementById(id);
+  let session = localStorage.getItem(SESSION_KEY) || '';
+  let currentWidgetUrl = '';
+
+  const show = (id, message, kind) => {
+    const node = $(id);
+    node.textContent = message || '';
+    node.className = 'status' + (kind ? ' ' + kind : '');
+    node.style.display = message ? 'block' : 'none';
+  };
+  const setLoading = (button, loading, label) => {
+    button.disabled = loading;
+    if (label) {
+      if (loading) {
+        button.dataset.oldLabel = button.textContent;
+        button.textContent = label;
+      } else if (button.dataset.oldLabel) {
+        button.textContent = button.dataset.oldLabel;
+        delete button.dataset.oldLabel;
+      }
+    }
+  };
+  async function api(path, method = 'GET', body = null) {
+    if (!workerBase || workerBase.includes('REPLACE-WITH-YOUR-WORKER')) {
+      throw new Error('Сервис ещё не настроен. Попробуй позже.');
+    }
+    const headers = { 'Content-Type': 'application/json' };
+    if (session) headers.Authorization = 'Bearer ' + session;
+    const response = await fetch(workerBase + path, {
+      method, headers, cache: 'no-store',
+      body: body === null ? undefined : JSON.stringify(body)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok === false) {
+      if (response.status === 401) {
+        localStorage.removeItem(SESSION_KEY);
+        session = '';
+      }
+      throw new Error(data.error || ('Ошибка сервера: HTTP ' + response.status));
+    }
+    return data;
+  }
+  function showSetup() {
+    $('connectCard').hidden = false;
+    $('dashboard').hidden = true;
+    $('obsCard').hidden = true;
+    $('donationsCard').hidden = true;
+    $('accountCard').hidden = true;
+  }
+  function showDashboard() {
+    $('connectCard').hidden = true;
+    $('dashboard').hidden = false;
+    $('obsCard').hidden = false;
+    $('donationsCard').hidden = false;
+    $('accountCard').hidden = false;
+  }
+  function currentValues() {
+    return {
+      current_amount: Number($('startCurrent').value),
+      goal_amount: Number($('startGoal').value),
+      currency: $('startCurrency').value
+    };
+  }
+  function newOAuthNonce() {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    const nonce = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+    localStorage.setItem(OAUTH_NONCE_KEY, nonce);
+    return nonce;
+  }
+  function renderDonations(rows) {
+    if (!rows || !rows.length) {
+      $('donationsTable').textContent = 'Пока записей нет.';
+      return;
+    }
+    const table = document.createElement('table');
+    const header = document.createElement('tr');
+    ['Дата','Отправитель','Сумма','Валюта','Зачтён'].forEach(label => {
+      const th = document.createElement('th');
+      th.textContent = label;
+      header.appendChild(th);
+    });
+    table.appendChild(header);
+    rows.forEach(item => {
+      const tr = document.createElement('tr');
+      [
+        item.created_at || '',
+        item.username || 'Аноним',
+        Number(item.amount || 0).toLocaleString('ru-RU'),
+        item.currency || '',
+        Number(item.counted) ? 'Да' : 'Нет'
+      ].forEach(value => {
+        const td = document.createElement('td');
+        td.textContent = String(value);
+        tr.appendChild(td);
+      });
+      table.appendChild(tr);
+    });
+    $('donationsTable').replaceChildren(table);
+  }
+  function render(data) {
+    showDashboard();
+    $('streamerName').textContent = data.username || 'DonationAlerts';
+    $('connectionState').textContent = data.connected
+      ? 'DonationAlerts: ' + (data.listener && data.listener.state || 'подключён')
+      : 'DonationAlerts не подключён';
+    const settings = data.settings || {};
+    $('currentAmount').value = settings.current_amount ?? 0;
+    $('goalAmount').value = settings.goal_amount ?? 10000;
+    $('currency').value = settings.currency || 'RUB';
+    $('startCurrent').value = settings.current_amount ?? 0;
+    $('startGoal').value = settings.goal_amount ?? 10000;
+    $('startCurrency').value = settings.currency || 'RUB';
+    currentWidgetUrl = String(data.widget_url || '');
+    $('obsUrl').textContent = currentWidgetUrl || 'Ссылка пока недоступна.';
+    renderDonations(data.donations || []);
+    if (data.listener && data.listener.last_error) {
+      show('settingsError', 'Ошибка приёма донатов: ' + data.listener.last_error, 'bad');
+    } else {
+      show('settingsError', '', 'bad');
+    }
+  }
+  async function loadMe() {
+    const data = await api('/api/me');
+    render(data);
+  }
+  function consumeOAuthSession() {
+    const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+    const received = hash.get('session');
+    if (received) {
+      const returnedNonce = hash.get('nonce') || '';
+      const expectedNonce = localStorage.getItem(OAUTH_NONCE_KEY) || '';
+      localStorage.removeItem(OAUTH_NONCE_KEY);
+      history.replaceState({}, '', location.pathname + location.search);
+      if (returnedNonce && expectedNonce && returnedNonce === expectedNonce) {
+        session = received;
+        localStorage.setItem(SESSION_KEY, session);
+      } else {
+        fetch(workerBase + '/api/logout', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + received, 'Content-Type': 'application/json' },
+          body: '{}'
+        }).catch(() => {});
+        session = '';
+        localStorage.removeItem(SESSION_KEY);
+      }
+    }
+  }
+
+  $('connectBtn').addEventListener('click', async () => {
+    show('connectError', '', 'bad');
+    const button = $('connectBtn');
+    setLoading(button, true, 'Открываю DonationAlerts…');
+    try {
+      const settings = currentValues();
+      settings.client_nonce = newOAuthNonce();
+      if (!Number.isFinite(settings.current_amount) || settings.current_amount < 0 ||
+          !Number.isFinite(settings.goal_amount) || settings.goal_amount <= 0) {
+        throw new Error('Введи корректную текущую сумму и цель.');
+      }
+      localStorage.setItem('tears_initial_settings', JSON.stringify(settings));
+      const result = await api('/api/oauth/start', 'POST', settings);
+      location.href = result.authorize_url;
+    } catch (error) {
+      show('connectError', error.message, 'bad');
+      setLoading(button, false);
+    }
+  });
+
+  $('saveBtn').addEventListener('click', async () => {
+    show('settingsStatus', '', 'good');
+    show('settingsError', '', 'bad');
+    const button = $('saveBtn');
+    setLoading(button, true, 'Сохраняю…');
+    try {
+      const result = await api('/api/settings', 'POST', {
+        current_amount: Number($('currentAmount').value),
+        goal_amount: Number($('goalAmount').value),
+        currency: $('currency').value
+      });
+      show('settingsStatus', 'Сохранено. Новые донаты будут прибавляться к этой сумме.', 'good');
+      await loadMe();
+    } catch (error) {
+      show('settingsError', error.message, 'bad');
+    } finally {
+      setLoading(button, false);
+    }
+  });
+
+  $('reconnectBtn').addEventListener('click', async () => {
+    show('settingsError', '', 'bad');
+    const button = $('reconnectBtn');
+    setLoading(button, true, 'Переход к авторизации…');
+    try {
+      const result = await api('/api/oauth/start', 'POST', {
+        current_amount: Number($('currentAmount').value),
+        goal_amount: Number($('goalAmount').value),
+        currency: $('currency').value,
+        client_nonce: newOAuthNonce()
+      });
+      location.href = result.authorize_url;
+    } catch (error) {
+      show('settingsError', error.message, 'bad');
+      setLoading(button, false);
+    }
+  });
+
+  $('disconnectBtn').addEventListener('click', async () => {
+    if (!confirm('Отключить DonationAlerts? Текущая сумма и цель останутся сохранены.')) return;
+    try {
+      await api('/api/disconnect', 'POST', {});
+      await loadMe();
+      show('settingsStatus', 'DonationAlerts отключён. Суммы сохранены.', 'good');
+    } catch (error) {
+      show('settingsError', error.message, 'bad');
+    }
+  });
+
+  $('copyUrlBtn').addEventListener('click', async () => {
+    if (!currentWidgetUrl) return;
+    try {
+      await navigator.clipboard.writeText(currentWidgetUrl);
+      show('urlStatus', 'Ссылка скопирована. Вставь её в OBS как Browser Source.', 'good');
+    } catch (_) {
+      show('urlStatus', 'Не удалось скопировать автоматически. Выдели ссылку и скопируй вручную.', 'bad');
+    }
+  });
+
+  $('rotateUrlBtn').addEventListener('click', async () => {
+    if (!confirm('Создать новую ссылку для OBS? Старая перестанет работать.')) return;
+    try {
+      const result = await api('/api/widget/rotate', 'POST', {});
+      currentWidgetUrl = result.widget_url;
+      $('obsUrl').textContent = currentWidgetUrl;
+      show('urlStatus', 'Создана новая персональная ссылка. Обнови её в OBS.', 'good');
+    } catch (error) {
+      show('urlStatus', error.message, 'bad');
+    }
+  });
+
+  $('refreshBtn').addEventListener('click', () => loadMe().catch(error => show('settingsError', error.message, 'bad')));
+
+  $('logoutBtn').addEventListener('click', async () => {
+    try { await api('/api/logout', 'POST', {}); } catch (_) {}
+    localStorage.removeItem(SESSION_KEY);
+    session = '';
+    showSetup();
+  });
+
+  consumeOAuthSession();
+  if (session) {
+    loadMe().catch(error => {
+      session = '';
+      showSetup();
+      if (error.message) show('connectError', error.message, 'bad');
+    });
+  } else {
+    showSetup();
+    try {
+      const settings = JSON.parse(localStorage.getItem('tears_initial_settings') || '{}');
+      if (settings.current_amount != null) $('startCurrent').value = settings.current_amount;
+      if (settings.goal_amount != null) $('startGoal').value = settings.goal_amount;
+      if (settings.currency) $('startCurrency').value = settings.currency;
+    } catch (_) {}
+  }
 })();
-</script></body></html>
+</script>
+</body>
+</html>

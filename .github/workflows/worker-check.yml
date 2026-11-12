@@ -1,8 +1,8 @@
-name: Check DonationAlerts integration
+name: Check multi-streamer DonationAlerts integration
 on:
   push:
     branches:
-      - integration/donationalerts
+      - refactor/multistream-oauth
   workflow_dispatch:
 jobs:
   syntax:
@@ -14,7 +14,7 @@ jobs:
           node-version: 22
       - name: Check Cloudflare Worker syntax
         run: node --input-type=module --check < worker/src/index.js
-      - name: Check external browser script
+      - name: Check per-streamer live bridge
         run: node --check da-cloudflare.js
       - name: Check inline scripts in widget and admin pages
         run: |

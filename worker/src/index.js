@@ -216,7 +216,7 @@ async function api(request, env) {
   const path = url.pathname;
 
   if (path === '/health' && request.method === 'GET') {
-    return json({ ok: true, service: 'Tears multi-stream DonationAlerts Worker', version: '2.6' });
+    return json({ ok: true, service: 'Tears multi-stream DonationAlerts Worker', version: '2.7' });
   }
 
   if (path === '/api/oauth/start' && request.method === 'POST') {
@@ -799,7 +799,11 @@ export class DonationAlertsListener extends DurableObject {
         await this.ctx.storage.put('last_frame_kind', 'service-message');
       }
 
-      if (message && (message.disconnect || message.refresh || push && (push.disconnect || push.refresh))) {
+      if (message && (
+        message.disconnect ||
+        message.refresh ||
+        (message.push && (message.push.disconnect || message.push.refresh))
+      )) {
         this.closeDonationSocket();
         await this.scheduleRetry();
       }

@@ -83,6 +83,7 @@ th{color:#9edfff}
       </div>
       <span class="pill" id="connectionState">Проверка подключения…</span>
     </div>
+    <p id="listenerActivity" class="small">Проверяем сообщения DonationAlerts…</p>
     <div class="grid">
       <div>
         <label for="currentAmount">Начальная / текущая сумма</label>
@@ -254,9 +255,22 @@ th{color:#9edfff}
   function render(data) {
     showDashboard();
     $('streamerName').textContent = data.username || 'DonationAlerts';
+    const listener = data.listener || {};
     $('connectionState').textContent = data.connected
-      ? 'DonationAlerts: ' + (data.listener && data.listener.state || 'подключён')
+      ? 'DonationAlerts: ' + (listener.state || 'подключён')
       : 'DonationAlerts не подключён';
+    const dateLabel = value => {
+      if (!value) return '';
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString('ru-RU');
+    };
+    const activity = [];
+    activity.push(listener.last_message_at
+      ? 'Последнее сообщение от DonationAlerts: ' + dateLabel(listener.last_message_at)
+      : 'Сообщения от DonationAlerts пока не поступали.');
+    if (listener.last_donation_at) activity.push('Последний принятый донат: ' + dateLabel(listener.last_donation_at));
+    if (listener.last_error) activity.push('Ошибка: ' + listener.last_error);
+    $('listenerActivity').textContent = activity.join(' · ');
     const settings = data.settings || {};
     $('currentAmount').value = settings.current_amount ?? 0;
     $('goalAmount').value = settings.goal_amount ?? 10000;

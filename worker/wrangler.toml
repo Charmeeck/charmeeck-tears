@@ -21,3 +21,4 @@ new_sqlite_classes = ["DonationAlertsListener"]
 WORKER_BASE_URL = "https://tears-donationalerts.charmwizard.workers.dev"
 ALLOWED_ORIGIN = "https://charmeeck.github.io"
 ADMIN_PAGE_URL = "https://charmeeck.github.io/charmeeck-tears/admin.html"
+WIDGET_PAGE_URL = "https://charmeeck.github.io/charmeeck-tears/widget/"

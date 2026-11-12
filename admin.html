@@ -276,6 +276,11 @@ th{color:#9edfff}
     } else if (listener.last_frame_keys) {
       activity.push('Поля последнего сообщения: ' + listener.last_frame_keys);
     }
+    if (listener.subscribe_stage) activity.push('Этап подписки: ' + listener.subscribe_stage);
+    if (listener.subscribe_started_at) activity.push('Запрос токена: ' + dateLabel(listener.subscribe_started_at));
+    if (listener.subscribe_command_sent_at) activity.push('Команда подписки отправлена: ' + dateLabel(listener.subscribe_command_sent_at));
+    if (listener.subscribe_response_keys) activity.push('Поля ответа API подписки: ' + listener.subscribe_response_keys);
+    if (listener.subscribe_channels_count != null) activity.push('Каналов в ответе: ' + listener.subscribe_channels_count);
     if (listener.last_donation_at) activity.push('Последний принятый донат: ' + dateLabel(listener.last_donation_at));
     if (listener.last_error) activity.push('Ошибка: ' + listener.last_error);
     $('listenerActivity').textContent = activity.join(' · ');

@@ -135,7 +135,7 @@ async function api(request, env) {
     const denied = adminDenied(request, env); if (denied) return denied;
     const s = await settings(env);
     const account = await env.DB.prepare('SELECT username,user_id,connected_at FROM oauth_tokens WHERE id=1').first();
-    const response = await listener(env).fetch('https://listener.internal/status');
+    const response = await listener(env).fetch('https://listener.internal/status', { headers: { 'x-tears-internal': env.INTERNAL_SECRET || '' } });
     const status = await response.json().catch(() => ({}));
     return json({ ok: true, settings: s, connected: Boolean(account && account.user_id),
       streamer_name: account && account.username || '', listener: status });

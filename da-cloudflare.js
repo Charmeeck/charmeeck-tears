@@ -18,6 +18,71 @@
   let retryTimer = null;
   let retryCount = 0;
   let stopped = false;
+  let pollTimer = null;
+  let pollInFlight = false;
+  let lastRealtimeAt = 0;
+
+  // Резервная сверка с сервером: помогает OBS восстановить сумму,
+  // даже если WebSocket временно потерял событие или переподключается.
+  function applyServerState(state, source, requestStartedAt = 0) {
+    if (!state || !window.TearsWidget || typeof window.TearsWidget.getState !== 'function') return;
+    const serverCurrent = Number(state.current_amount);
+    const serverGoal = Number(state.goal_amount);
+    const local = window.TearsWidget.getState();
+    const localCurrent = Number(local.current);
+
+    if (!Number.isFinite(serverCurrent) || serverCurrent < 0) return;
+
+    // Не откатываем сумму ответом старого poll-запроса, если после его
+    // отправки уже пришло более новое событие по WebSocket.
+    const realtimeArrivedDuringPoll =
+      source === 'poll' && requestStartedAt > 0 && lastRealtimeAt > requestStartedAt;
+
+    if (serverCurrent > localCurrent + 0.000001) {
+      const difference = serverCurrent - localCurrent;
+      window.TearsWidget.triggerDonation(
+        difference,
+        source === 'poll' ? 'DonationAlerts · синхронизация' : 'DonationAlerts',
+        'server-total:' + String(serverCurrent)
+      );
+    } else if (serverCurrent < localCurrent - 0.000001 && !realtimeArrivedDuringPoll) {
+      // Сброс/ручная корректировка суммы в панели администратора.
+      window.TearsWidget.setBaseline({
+        current_amount: serverCurrent,
+        goal_amount: Number.isFinite(serverGoal) && serverGoal > 0 ? serverGoal : local.goal,
+        currency: state.currency || local.currency
+      });
+      return;
+    }
+
+    // Цель и валюта тоже могут быть изменены в панели.
+    const currentAfterSync = window.TearsWidget.getState().current;
+    window.TearsWidget.setBaseline({
+      current_amount: currentAfterSync,
+      goal_amount: Number.isFinite(serverGoal) && serverGoal > 0 ? serverGoal : local.goal,
+      currency: state.currency || local.currency
+    });
+  }
+
+  async function pollState() {
+    if (stopped || pollInFlight) return;
+    pollInFlight = true;
+    const requestStartedAt = Date.now();
+    try {
+      const state = await loadState();
+      applyServerState(state, 'poll', requestStartedAt);
+    } catch (error) {
+      console.warn('[Tears] Резервная синхронизация не удалась:', error.message);
+    } finally {
+      pollInFlight = false;
+    }
+  }
+
+  function startPolling() {
+    if (pollTimer || stopped) return;
+    pollState();
+    pollTimer = setInterval(pollState, 5000);
+  }
 
   async function loadState() {
     const response = await fetch(
@@ -56,22 +121,26 @@
       let data;
       try { data = JSON.parse(event.data); } catch (_) { return; }
       if (data.type === 'state') {
-        applyState(data.state);
+        applyServerState(data.state, 'websocket');
+        lastRealtimeAt = Date.now();
         return;
       }
       if (data.type === 'donation') {
-        if (window.TearsWidget && typeof window.TearsWidget.triggerDonation === 'function') {
+        lastRealtimeAt = Date.now();
+        if (data.current_amount != null) {
+          // Сверяем абсолютную сумму, а не прибавляем событие вслепую:
+          // это защищает от двойного начисления при гонке WebSocket и poll.
+          applyServerState({
+            current_amount: data.current_amount,
+            goal_amount: data.goal_amount,
+            currency: data.currency
+          }, 'websocket');
+        } else if (window.TearsWidget && typeof window.TearsWidget.triggerDonation === 'function') {
           window.TearsWidget.triggerDonation(
             Number(data.amount),
             String(data.username || 'Аноним'),
             'donationalerts:' + String(data.id)
           );
-        } else if (data.current_amount != null) {
-          applyState({
-            current_amount: data.current_amount,
-            goal_amount: data.goal_amount,
-            currency: data.currency
-          });
         }
         return;
       }
@@ -103,15 +172,18 @@
     .then(state => {
       applyState(state);
       connect();
+      startPolling();
     })
     .catch(error => {
       console.error('[Tears]', error.message);
       scheduleReconnect();
+      startPolling();
     });
 
   window.addEventListener('beforeunload', () => {
     stopped = true;
     if (retryTimer) clearTimeout(retryTimer);
+    if (pollTimer) clearInterval(pollTimer);
     try { if (socket) socket.close(); } catch (_) {}
   });
 })();

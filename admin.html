@@ -151,6 +151,7 @@ th{color:#9edfff}
   'use strict';
   const workerBase = String(window.TEARS_DA_WORKER || '').replace(/\/+$/, '');
   const SESSION_KEY = 'tears_owner_session_v2';
+  const OAUTH_NONCE_KEY = 'tears_oauth_nonce_v2';
   const $ = id => document.getElementById(id);
   let session = localStorage.getItem(SESSION_KEY) || '';
   let currentWidgetUrl = '';
@@ -214,6 +215,12 @@ th{color:#9edfff}
       currency: $('startCurrency').value
     };
   }
+  function newOAuthNonce() {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    const nonce = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+    localStorage.setItem(OAUTH_NONCE_KEY, nonce);
+    return nonce;
+  }
   function renderDonations(rows) {
     if (!rows || !rows.length) {
       $('donationsTable').textContent = 'Пока записей нет.';
@@ -274,9 +281,22 @@ th{color:#9edfff}
     const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
     const received = hash.get('session');
     if (received) {
-      session = received;
-      localStorage.setItem(SESSION_KEY, session);
+      const returnedNonce = hash.get('nonce') || '';
+      const expectedNonce = localStorage.getItem(OAUTH_NONCE_KEY) || '';
+      localStorage.removeItem(OAUTH_NONCE_KEY);
       history.replaceState({}, '', location.pathname + location.search);
+      if (returnedNonce && expectedNonce && returnedNonce === expectedNonce) {
+        session = received;
+        localStorage.setItem(SESSION_KEY, session);
+      } else {
+        fetch(workerBase + '/api/logout', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + received, 'Content-Type': 'application/json' },
+          body: '{}'
+        }).catch(() => {});
+        session = '';
+        localStorage.removeItem(SESSION_KEY);
+      }
     }
   }
 
@@ -286,6 +306,7 @@ th{color:#9edfff}
     setLoading(button, true, 'Открываю DonationAlerts…');
     try {
       const settings = currentValues();
+      settings.client_nonce = newOAuthNonce();
       if (!Number.isFinite(settings.current_amount) || settings.current_amount < 0 ||
           !Number.isFinite(settings.goal_amount) || settings.goal_amount <= 0) {
         throw new Error('Введи корректную текущую сумму и цель.');
@@ -327,7 +348,8 @@ th{color:#9edfff}
       const result = await api('/api/oauth/start', 'POST', {
         current_amount: Number($('currentAmount').value),
         goal_amount: Number($('goalAmount').value),
-        currency: $('currency').value
+        currency: $('currency').value,
+        client_nonce: newOAuthNonce()
       });
       location.href = result.authorize_url;
     } catch (error) {

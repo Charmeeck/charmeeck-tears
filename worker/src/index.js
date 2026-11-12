@@ -926,18 +926,39 @@ export class DonationAlertsListener extends DurableObject {
     const currency = String(item.currency || '').toUpperCase();
     const username = String(item.username || item.name || 'Аноним').slice(0, 80);
     const message = String(item.message || '').slice(0, 500);
-    if (!accountId || !id || id.length > 100 || !Number.isFinite(amount) || amount <= 0 || amount > 1e9 || !currency) return;
+    const diagnostic = {
+      at: new Date().toISOString(),
+      donation_id: id.slice(0, 100),
+      amount: Number.isFinite(amount) ? amount : null,
+      currency,
+      stage: 'received'
+    };
+    await this.ctx.storage.put('last_donation_diagnostic', diagnostic);
+    if (!accountId || !id || id.length > 100 || !Number.isFinite(amount) || amount <= 0 || amount > 1e9 || !currency) {
+      diagnostic.stage = 'invalid-donation-data';
+      await this.ctx.storage.put('last_donation_diagnostic', diagnostic);
+      return;
+    }
 
-    const account = await this.env.DB.prepare('SELECT currency FROM accounts WHERE account_id=?')
+    const account = await this.env.DB.prepare('SELECT currency,current_amount FROM accounts WHERE account_id=?')
       .bind(accountId).first();
+    diagnostic.balance_before = Number(account && account.current_amount);
     const counted = currency === String(account && account.currency || 'RUB') ? 1 : 0;
+    diagnostic.counted = Boolean(counted);
     const createdAt = String(item.created_at || new Date().toISOString());
     const inserted = await this.env.DB.prepare(
       'INSERT OR IGNORE INTO donations (account_id,donation_id,username,amount,currency,message,created_at,counted) VALUES (?,?,?,?,?,?,?,?)'
     ).bind(accountId, id, username, amount, currency, message, createdAt, counted).run();
 
-    if (!inserted || !inserted.meta || !inserted.meta.changes) return;
+    diagnostic.insert_changes = Number(inserted && inserted.meta && inserted.meta.changes || 0);
+    if (!diagnostic.insert_changes) {
+      diagnostic.stage = 'duplicate-or-not-inserted';
+      await this.ctx.storage.put('last_donation_diagnostic', diagnostic);
+      return;
+    }
     if (!counted) {
+      diagnostic.stage = 'currency-mismatch';
+      await this.ctx.storage.put('last_donation_diagnostic', diagnostic);
       this.broadcast({
         type: 'status',
         state: 'currency-mismatch',
@@ -946,11 +967,17 @@ export class DonationAlertsListener extends DurableObject {
       return;
     }
 
-    await this.env.DB.prepare('UPDATE accounts SET current_amount=current_amount+?,updated_at=? WHERE account_id=?')
+    diagnostic.stage = 'balance-update-started';
+    await this.ctx.storage.put('last_donation_diagnostic', diagnostic);
+    const updateResult = await this.env.DB.prepare('UPDATE accounts SET current_amount=current_amount+?,updated_at=? WHERE account_id=?')
       .bind(amount, new Date().toISOString(), accountId).run();
+    diagnostic.update_changes = Number(updateResult && updateResult.meta && updateResult.meta.changes || 0);
     const updated = await this.env.DB.prepare(
       'SELECT current_amount,goal_amount,currency FROM accounts WHERE account_id=?'
     ).bind(accountId).first();
+    diagnostic.balance_after = Number(updated && updated.current_amount);
+    diagnostic.stage = diagnostic.update_changes > 0 ? 'balance-updated' : 'balance-update-no-row';
+    await this.ctx.storage.put('last_donation_diagnostic', diagnostic);
 
     this.broadcast({
       type: 'donation',

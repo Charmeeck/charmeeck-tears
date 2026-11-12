@@ -410,6 +410,17 @@ th{color:#9edfff}
       showSetup();
       if (error.message) show('connectError', error.message, 'bad');
     });
+    // Keep listener status fresh while this owner's panel remains open.
+    window.setInterval(() => {
+      if (!session || document.hidden) return;
+      loadMe().catch(error => {
+        if (error.message && /Сессия завершилась/.test(error.message)) {
+          session = '';
+          showSetup();
+          show('connectError', error.message, 'bad');
+        }
+      });
+    }, 5000);
   } else {
     showSetup();
     try {

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Донат-бар «Слёзы» — v70</title>
+<title>Донат-бар «Слёзы» — v74</title>
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
@@ -21,7 +21,7 @@
   #centerOrnament { z-index: 11; transform: translateY(-3px); }
 
   .amount-label {
-    position:absolute; top:calc(79.5% + 13px); height:7.2%; transform:translate(-50%, -50%); z-index:8;
+    position:absolute; top:calc(79.5% + 14px); height:7.2%; transform:translate(-50%, -50%); z-index:8;
     display:grid; place-items:center;
     color:#f5f7ff; font-family:Georgia, "Times New Roman", serif;
     font-size:clamp(22px, min(2.75vw, 5.5vh), 49px); font-weight:600;
@@ -70,15 +70,15 @@
 </head>
 <body>
 <div class="stage" id="stage">
-  <img class="layer" id="base" src="assets/base_cutout.webp" alt="">
-  <img class="layer" id="personInside" src="assets/person_inside.webp" alt="">
-  <img class="layer" id="dryGlass" src="assets/dry_glass.webp" alt="">
+  <img class="layer" id="base" src="assets/base_cutout.png" alt="">
+  <img class="layer" id="personInside" src="assets/person_inside.png" alt="">
+  <img class="layer" id="dryGlass" src="assets/dry_glass.png" alt="">
   <canvas class="layer" id="liquid" width="1774" height="887" aria-hidden="true"></canvas>
   <canvas class="layer" id="completionGlow" width="1774" height="887" aria-hidden="true"></canvas>
   <canvas class="layer" id="donationFx" width="1774" height="887" aria-hidden="true"></canvas>
-  <img class="layer" id="glassReflections" src="assets/glass_reflections.webp" alt="">
-  <img class="layer" id="frontDetails" src="assets/front_details.webp" alt="">
-  <img class="layer" id="centerOrnament" src="assets/center_ornament.webp" alt="">
+  <img class="layer" id="glassReflections" src="assets/glass_reflections.png" alt="">
+  <img class="layer" id="frontDetails" src="assets/front_details.png" alt="">
+  <img class="layer" id="centerOrnament" src="assets/center_ornament.png" alt="">
   <div class="amount-label" id="currentLabel" aria-label="Текущая сумма">3 750 ₽</div>
   <div id="donationToast" role="status" aria-live="polite"></div>
   <div class="amount-label" id="goalLabel" aria-label="Цель">10 000 ₽</div>
@@ -602,8 +602,8 @@ const formatAmount=value=>fmt.format(value)+' '+(currencySymbols[currency]||curr
     transitionStart=performance.now();
     requestAnimationFrame(frame);
   };
-  maskImage.onerror=()=>{if(status)status.textContent='ОШИБКА: не загрузилась assets/liquid_mask.webp';};
-  maskImage.src='assets/liquid_mask.webp';
+  maskImage.onerror=()=>{if(status)status.textContent='ОШИБКА: не загрузилась assets/liquid_mask.png';};
+  maskImage.src='assets/liquid_mask.png';
 })();
 </script>
 <script src="../config.js"></script>

@@ -76,31 +76,30 @@ jobs:
               html = html.replace("fmt.format(current)+' ₽'", "formatAmount(current)")
               html = html.replace("fmt.format(goal)+' ₽'", "formatAmount(goal)")
               html = html.replace("fmt.format(value)+' ₽'", "formatAmount(value)")
-              api_old = """  window.TearsWidget={
-            triggerDonation:(amount,donorName,eventId)=>triggerDonation(amount,donorName,eventId),
-            getState:()=>({current,goal,percent:clamp(current/goal*100,0,100)})
-          };"""
-              api_new = """  window.TearsWidget={
-            setBaseline:(state={})=>{
-              const nextCurrent=Number(state.current_amount);
-              const nextGoal=Number(state.goal_amount);
-              if(Number.isFinite(nextCurrent)&&nextCurrent>=0)current=nextCurrent;
-              if(Number.isFinite(nextGoal)&&nextGoal>0)goal=nextGoal;
-              const nextCurrency=String(state.currency||currency||'RUB').toUpperCase();
-              if(currencySymbols[nextCurrency])currency=nextCurrency;
-              document.getElementById('currentLabel').textContent=formatAmount(current);
-              document.getElementById('goalLabel').textContent=formatAmount(goal);
-              transitionFrom=shownPercent;
-              targetPercent=clamp(current/goal*100,0,100);
-              transitionStart=performance.now();
-              if(targetPercent>=99.95){wasFull=false;completionStarted=-1;}
-            },
-            triggerDonation:(amount,donorName,eventId)=>triggerDonation(amount,donorName,eventId),
-            getState:()=>({current,goal,currency,percent:clamp(current/goal*100,0,100)})
-          };"""
-              if api_old not in html:
+              api_new = "\\n".join([
+                  "  window.TearsWidget={",
+                  "    setBaseline:(state={})=>{",
+                  "      const nextCurrent=Number(state.current_amount);",
+                  "      const nextGoal=Number(state.goal_amount);",
+                  "      if(Number.isFinite(nextCurrent)&&nextCurrent>=0)current=nextCurrent;",
+                  "      if(Number.isFinite(nextGoal)&&nextGoal>0)goal=nextGoal;",
+                  "      const nextCurrency=String(state.currency||currency||'RUB').toUpperCase();",
+                  "      if(currencySymbols[nextCurrency])currency=nextCurrency;",
+                  "      document.getElementById('currentLabel').textContent=formatAmount(current);",
+                  "      document.getElementById('goalLabel').textContent=formatAmount(goal);",
+                  "      transitionFrom=shownPercent;",
+                  "      targetPercent=clamp(current/goal*100,0,100);",
+                  "      transitionStart=performance.now();",
+                  "      if(targetPercent>=99.95){wasFull=false;completionStarted=-1;}",
+                  "    },",
+                  "    triggerDonation:(amount,donorName,eventId)=>triggerDonation(amount,donorName,eventId),",
+                  "    getState:()=>({current,goal,currency,percent:clamp(current/goal*100,0,100)})",
+                  "  };"
+              ])
+              pattern = r"window\\.TearsWidget=\\{[\\s\\S]*?^\\s*\\};"
+              html, api_count = re.subn(pattern, api_new, html, count=1, flags=re.M)
+              if api_count != 1:
                   raise SystemExit("Could not locate the v70 TearsWidget API.")
-              html = html.replace(api_old, api_new, 1)
               if production_page:
                   html = html.replace("  const status=document.getElementById('testStatus');", "  const status=null;")
                   html = html.replace(" — динамические суммы v70", " — v70")

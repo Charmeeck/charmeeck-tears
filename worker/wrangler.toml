@@ -18,6 +18,6 @@ tag = "v1"
 new_sqlite_classes = ["DonationAlertsListener"]
 
 [vars]
-WORKER_BASE_URL = "https://REPLACE-WITH-YOUR-WORKER.workers.dev"
+WORKER_BASE_URL = "https://tears-donationalerts.charmwizard.workers.dev"
 ALLOWED_ORIGIN = "https://charmeeck.github.io"
 ADMIN_PAGE_URL = "https://charmeeck.github.io/charmeeck-tears/admin.html"

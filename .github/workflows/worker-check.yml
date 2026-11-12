@@ -69,6 +69,19 @@ jobs:
                   raise SystemExit("Missing explicit status storage read: " + item)
           print("Durable Object status reads use individual storage keys.")
           PY
+      - name: Guard Centrifugo acknowledgement handling
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          source = Path("worker/src/index.js").read_text(encoding="utf-8")
+          unsafe = "|| push && (push.disconnect || push.refresh)"
+          if unsafe in source:
+              raise SystemExit("Found obsolete bare push reference in the Centrifugo message handler.")
+          required = "message.push && (message.push.disconnect || message.push.refresh)"
+          if required not in source:
+              raise SystemExit("Expected guarded message.push access is missing.")
+          print("Centrifugo acknowledgement path no longer reads an undefined push variable.")
+          PY
       - name: Test documented DonationAlerts Centrifugo envelope
         run: |
           python - <<'PY'

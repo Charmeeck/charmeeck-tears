@@ -1,66 +1,115 @@
-# Tears Widget v70 — подключение нескольких стримеров
+# Tears v70 — подключение DonationAlerts для нескольких стримеров
 
-## Как устроено
+**Это общий сервис.** Владелец проекта один раз настраивает GitHub Pages, Cloudflare Worker, D1 и одно OAuth-приложение DonationAlerts. После этого каждый новый стример просто авторизует свой аккаунт, задаёт суммы и забирает личную ссылку OBS.
 
-Все стримеры используют один общий адрес панели и один Cloudflare Worker. Каждый стример отдельно авторизует СВОЙ аккаунт DonationAlerts и получает персональную ссылку OBS.
+## Однократная настройка владельцем сервиса
 
-- Один OAuth-клиент DonationAlerts на владельца сервиса.
-- Один Cloudflare Worker и одна D1 база на весь сервис.
-- OAuth-токены хранятся зашифрованными в D1 и привязаны к конкретному DA user ID.
-- Настройки суммы, цели и валюты хранятся отдельно для каждого аккаунта.
-- Для каждого стримера создаётся отдельный Durable Object listener к его каналу DonationAlerts.
-- История и защита от повторного начисления разделены по account_id.
-- У каждого стримера отдельный ключ Browser Source. Виджет с этим ключом может читать только свой прогресс и события.
+### 1. GitHub Pages
 
-## Что потребуется владельцу сервиса один раз
+Сайт уже опубликован:
 
-1. GitHub Pages с репозиторием этого проекта.
-2. Один аккаунт Cloudflare.
-3. Один аккаунт DonationAlerts, в котором владелец создаст OAuth-приложение для сервиса.
-4. Node.js LTS и Wrangler для публикации Worker.
-5. D1 база `tears-donations`.
+- Панель: https://charmeeck.github.io/charmeeck-tears/admin.html
+- Виджет: https://charmeeck.github.io/charmeeck-tears/widget/
 
-В Cloudflare Worker Secrets владелец задаёт:
-- `DA_CLIENT_ID` — Client ID единого OAuth-приложения.
-- `DA_CLIENT_SECRET` — Client Secret этого приложения.
-- `APP_ENCRYPTION_KEY` — Base64 от 32 случайных байт.
-- `INTERNAL_SECRET` — случайный hex-секрет для внутренних вызовов Durable Object.
+### 2. Создай одну D1 базу данных
 
-OAuth Redirect URI для единого приложения:
+В Cloudflare:
+1. Открой Storage & databases → D1 SQL Database.
+2. Нажми Create Database.
+3. Имя: `tears-donations`.
+4. Создай базу и скопируй её Database ID.
+5. Вставь ID в `worker/wrangler.toml` вместо `PASTE_D1_DATABASE_ID_HERE`.
+
+Загружать или создавать отдельную базу для каждого стримера не нужно.
+
+### 3. Подготовь Wrangler
+
+Установи Node.js LTS с https://nodejs.org/. В папке `worker` открой PowerShell и выполни:
+
+```powershell
+npm install
+npx wrangler login
+npx wrangler d1 migrations apply tears-donations --remote
+```
+
+### 4. Создай одно приложение DonationAlerts для всего сервиса
+
+Открой https://www.donationalerts.com/application/clients и создай OAuth-приложение.
+
+Redirect URI:
 `https://tears-donationalerts.charmwizard.workers.dev/oauth/callback`
 
-Области доступа:
+Права доступа:
 - `oauth-user-show`
 - `oauth-donation-subscribe`
 
-Эти реквизиты создаются только владельцем сервиса и не выдаются стримерам.
+Скопируй Client ID и Client Secret. **Это приложение создаётся один раз владельцем сервиса. Стримерам не нужно создавать собственные OAuth-приложения.**
 
-## Как подключается новый стример
+### 5. Задай Worker Secrets
 
-1. Открывает общую страницу панели:
-   `https://charmeeck.github.io/charmeeck-tears/admin.html`
-2. Указывает стартовую сумму, цель и валюту.
+Из папки `worker` выполни:
+
+```powershell
+npx wrangler secret put DA_CLIENT_ID
+npx wrangler secret put DA_CLIENT_SECRET
+npx wrangler secret put APP_ENCRYPTION_KEY
+npx wrangler secret put INTERNAL_SECRET
+```
+
+Введи значения Client ID/Secret из одного OAuth-приложения.
+
+Сгенерируй APP_ENCRYPTION_KEY:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+Сгенерируй INTERNAL_SECRET:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Каждое сгенерированное значение вставляй в соответствующую команду `wrangler secret put`. Не отправляй эти секреты другим стримерам и не записывай их в GitHub.
+
+### 6. Опубликуй Worker
+
+```powershell
+npx wrangler deploy
+```
+
+Проверь:
+`https://tears-donationalerts.charmwizard.workers.dev/health`
+
+Ожидаемый ответ содержит `"ok":true`.
+
+## Как подключается другой стример
+
+Новый стример делает только это:
+
+1. Открывает https://charmeeck.github.io/charmeeck-tears/admin.html
+2. Вводит свою текущую сумму, цель и валюту.
 3. Нажимает «Подключить DonationAlerts».
-4. Входит в СВОЙ DonationAlerts и разрешает доступ приложению.
-5. Возвращается в личную панель.
-6. При необходимости меняет суммы и валюту.
-7. Копирует личную ссылку OBS.
-8. В OBS добавляет Browser Source и вставляет ссылку. Рекомендуемый размер — 1774 × 887.
+4. Входит в СВОЙ аккаунт DonationAlerts и подтверждает разрешения.
+5. После возврата в панель проверяет суммы и копирует персональную ссылку OBS.
+6. В OBS добавляет Источник → Браузер и вставляет ссылку. Размер: 1774 × 887.
 
-Новому стримеру НЕ нужно создавать OAuth-приложение, Worker, базу данных или GitHub-репозиторий.
+Ему не нужно регистрировать GitHub или Cloudflare, создавать Worker или D1, загружать архив или вводить Client ID/Client Secret.
 
-## Адреса
+## Что разделяется между стримерами
 
-- Панель: `https://charmeeck.github.io/charmeeck-tears/admin.html`
-- Виджет: `https://charmeeck.github.io/charmeeck-tears/widget/`
-- Worker: `https://tears-donationalerts.charmwizard.workers.dev`
+- Аккаунт DonationAlerts и OAuth-токены.
+- Начальная/текущая сумма, цель и валюта.
+- История обработанных донатов.
+- Live-подписка на канал событий.
+- Персональная ссылка OBS и сессия управления.
 
-## Ограничения и безопасность
+Один стример не может использовать ключ виджета другого стримера для чтения его суммы или событий.
 
-- Client Secret и OAuth-токены никогда не передаются в OBS.
-- Владелец сервиса хранит ключи OAuth в Cloudflare Secrets.
-- Access/Refresh Token каждого стримера хранятся зашифрованными в D1.
-- Browser Source key — персональная секретная ссылка; не публикуй её.
-- Донат в валюте, отличной от настроенной валюты сбора, не увеличивает прогресс. Автоконвертации нет.
-- Каждому стримеру доступны только его собственная панель, настройки, донаты и канал событий.
-- Одна установка обслуживает несколько аккаунтов; постоянное подключение Durable Object на каждого активного стримера расходует ресурсы Cloudflare. Следи за Usage/Billing.
+## Ограничения
+
+Донат в валюте, отличной от валюты сбора, записывается в историю, но не прибавляется к прогрессу. Автоматической конвертации нет.
+
+Каждый активный стример создаёт отдельный Durable Object с постоянной WebSocket-подпиской. Следи за Usage/Billing Cloudflare: бесплатный тариф не гарантирует бесплатную работу при любом числе активных стримеров.
+
+Реальное поступление донатов ещё нужно проверить после настройки Cloudflare: подключить тестовый аккаунт, провести небольшой тестовый донат и убедиться, что изменилась сумма только у этого стримера.

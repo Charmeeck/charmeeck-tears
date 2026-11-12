@@ -342,18 +342,21 @@ th{color:#9edfff}
 
   $('reconnectBtn').addEventListener('click', async () => {
     show('settingsError', '', 'bad');
+    show('settingsStatus', '', 'good');
     const button = $('reconnectBtn');
-    setLoading(button, true, 'Переход к авторизации…');
+    setLoading(button, true, 'Запускаю приём донатов…');
     try {
-      const result = await api('/api/oauth/start', 'POST', {
-        current_amount: Number($('currentAmount').value),
-        goal_amount: Number($('goalAmount').value),
-        currency: $('currency').value,
-        client_nonce: newOAuthNonce()
-      });
-      location.href = result.authorize_url;
+      const result = await api('/api/listener/restart', 'POST', {});
+      await loadMe();
+      const state = result.listener && result.listener.state || 'connecting';
+      if (state === 'error') {
+        show('settingsError', (result.listener.last_error || 'Не удалось подключиться к DonationAlerts.'), 'bad');
+      } else {
+        show('settingsStatus', 'Слушатель запущен. Текущий статус: ' + state + '. Обнови панель через несколько секунд.', 'good');
+      }
     } catch (error) {
       show('settingsError', error.message, 'bad');
+    } finally {
       setLoading(button, false);
     }
   });

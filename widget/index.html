@@ -99,7 +99,7 @@ const currencySymbols={RUB:'₽',USD:'$',EUR:'€',KZT:'₸',UAH:'₴',BYN:'Br',
 const formatAmount=value=>fmt.format(value)+' '+(currencySymbols[currency]||currency);
   const requestedPercent=params.has('percent')?readNumber(params.get('percent'),current/goal*100):current/goal*100;
   let targetPercent=clamp(requestedPercent,0,100);
-  const fmt=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0});
+  
   document.getElementById('currentLabel').textContent=formatAmount(current);
   document.getElementById('goalLabel').textContent=formatAmount(goal);
 

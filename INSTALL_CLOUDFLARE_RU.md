@@ -1,149 +1,66 @@
-# Подключение «Слёз» к DonationAlerts через GitHub Pages и Cloudflare
+# Tears Widget v70 — подключение нескольких стримеров
 
-Эта инструкция для репозитория `Charmeeck/charmeeck-tears`. Beget и PHP не нужны.
+## Как устроено
 
-## 1. Сначала опубликуй сайт
+Все стримеры используют один общий адрес панели и один Cloudflare Worker. Каждый стример отдельно авторизует СВОЙ аккаунт DonationAlerts и получает персональную ссылку OBS.
 
-После слияния ветки интеграции в `main` GitHub Pages опубликует:
-- главную: `https://charmeeck.github.io/charmeeck-tears/`
-- панель: `https://charmeeck.github.io/charmeeck-tears/admin.html`
-- виджет: `https://charmeeck.github.io/charmeeck-tears/widget/`
+- Один OAuth-клиент DonationAlerts на владельца сервиса.
+- Один Cloudflare Worker и одна D1 база на весь сервис.
+- OAuth-токены хранятся зашифрованными в D1 и привязаны к конкретному DA user ID.
+- Настройки суммы, цели и валюты хранятся отдельно для каждого аккаунта.
+- Для каждого стримера создаётся отдельный Durable Object listener к его каналу DonationAlerts.
+- История и защита от повторного начисления разделены по account_id.
+- У каждого стримера отдельный ключ Browser Source. Виджет с этим ключом может читать только свой прогресс и события.
 
-В OBS Browser Source укажи адрес виджета, размер 1774 × 887. Пока Cloudflare Worker не настроен, виджет остаётся демонстрационным.
+## Что потребуется владельцу сервиса один раз
 
-## 2. Установи Node.js
+1. GitHub Pages с репозиторием этого проекта.
+2. Один аккаунт Cloudflare.
+3. Один аккаунт DonationAlerts, в котором владелец создаст OAuth-приложение для сервиса.
+4. Node.js LTS и Wrangler для публикации Worker.
+5. D1 база `tears-donations`.
 
-Скачай Node.js LTS с официального сайта https://nodejs.org/ и установи с настройками по умолчанию. После установки открой PowerShell и выполни:
+В Cloudflare Worker Secrets владелец задаёт:
+- `DA_CLIENT_ID` — Client ID единого OAuth-приложения.
+- `DA_CLIENT_SECRET` — Client Secret этого приложения.
+- `APP_ENCRYPTION_KEY` — Base64 от 32 случайных байт.
+- `INTERNAL_SECRET` — случайный hex-секрет для внутренних вызовов Durable Object.
 
-```powershell
-node -v
-npm -v
-```
+OAuth Redirect URI для единого приложения:
+`https://tears-donationalerts.charmwizard.workers.dev/oauth/callback`
 
-Обе команды должны вывести номера версий.
+Области доступа:
+- `oauth-user-show`
+- `oauth-donation-subscribe`
 
-## 3. Подготовь Cloudflare Worker
+Эти реквизиты создаются только владельцем сервиса и не выдаются стримерам.
 
-На компьютере открой папку репозитория, затем папку `worker`. В адресной строке Проводника напиши `powershell` и нажми Enter — откроется терминал сразу в нужной папке.
+## Как подключается новый стример
 
-Выполни команды по одной:
+1. Открывает общую страницу панели:
+   `https://charmeeck.github.io/charmeeck-tears/admin.html`
+2. Указывает стартовую сумму, цель и валюту.
+3. Нажимает «Подключить DonationAlerts».
+4. Входит в СВОЙ DonationAlerts и разрешает доступ приложению.
+5. Возвращается в личную панель.
+6. При необходимости меняет суммы и валюту.
+7. Копирует личную ссылку OBS.
+8. В OBS добавляет Browser Source и вставляет ссылку. Рекомендуемый размер — 1774 × 887.
 
-```powershell
-npm install
-npx wrangler login
-```
+Новому стримеру НЕ нужно создавать OAuth-приложение, Worker, базу данных или GitHub-репозиторий.
 
-Откроется браузер Cloudflare. Войди в аккаунт и разреши Wrangler доступ.
+## Адреса
 
-Создай базу данных:
+- Панель: `https://charmeeck.github.io/charmeeck-tears/admin.html`
+- Виджет: `https://charmeeck.github.io/charmeeck-tears/widget/`
+- Worker: `https://tears-donationalerts.charmwizard.workers.dev`
 
-```powershell
-npx wrangler d1 create tears-donations
-```
+## Ограничения и безопасность
 
-В ответе найди `database_id`. Открой файл `worker/wrangler.toml` в редакторе и замени значение `PASTE_D1_DATABASE_ID_HERE` на свой ID. Не меняй название базы и привязку `DB`.
-
-Примени таблицы базы:
-
-```powershell
-npx wrangler d1 migrations apply tears-donations --remote
-```
-
-## 4. Опубликуй Worker первый раз
-
-В папке `worker` выполни:
-
-```powershell
-npx wrangler deploy
-```
-
-В конце появится адрес примерно такого вида:
-
-`https://tears-donationalerts.ТВОЙ-SUBDOMAIN.workers.dev`
-
-Скопируй именно свой адрес. В `worker/wrangler.toml` замени:
-- `REPLACE-WITH-YOUR-WORKER.workers.dev` в `WORKER_BASE_URL` на свой адрес;
-- не меняй `ALLOWED_ORIGIN = "https://charmeeck.github.io"`;
-- не меняй `ADMIN_PAGE_URL = "https://charmeeck.github.io/charmeeck-tears/admin.html"`.
-
-В корневом файле репозитория `config.js` замени адрес-заглушку на тот же адрес Worker:
-
-`window.TEARS_DA_WORKER = 'https://твой-адрес.workers.dev';`
-
-Сохрани оба файла, отправь их в GitHub (commit/push), затем снова выполни `npx wrangler deploy`.
-
-## 5. Создай секреты Worker
-
-Всё ещё находясь в папке `worker`, по очереди выполни:
-
-```powershell
-npx wrangler secret put ADMIN_PASSWORD
-```
-
-Введи придуманный длинный пароль панели. Сохрани его у себя в менеджере паролей.
-
-Сгенерируй ключ шифрования:
-
-```powershell
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
-```
-
-Скопируй выведенную строку, затем выполни `npx wrangler secret put APP_ENCRYPTION_KEY` и вставь её.
-
-Сгенерируй внутренний секрет:
-
-```powershell
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
-Скопируй строку, затем выполни `npx wrangler secret put INTERNAL_SECRET` и вставь её.
-
-Не публикуй эти значения, не присылай их в чат и не записывай в `wrangler.toml` или `config.js`.
-
-## 6. Создай приложение DonationAlerts
-
-Открой https://www.donationalerts.com/application/clients и создай OAuth-приложение.
-
-В поле Redirect URI укажи точный адрес:
-
-`https://ТВОЙ-WORKER.workers.dev/oauth/callback`
-
-Сохрани Client ID и Client Secret. Добавь их в Worker только через команды:
-
-```powershell
-npx wrangler secret put DA_CLIENT_ID
-npx wrangler secret put DA_CLIENT_SECRET
-```
-
-После добавления всех секретов выполни:
-
-```powershell
-npx wrangler deploy
-```
-
-## 7. Подключи аккаунт и настрой сбор
-
-1. Открой `https://charmeeck.github.io/charmeeck-tears/admin.html`.
-2. Войди с паролем `ADMIN_PASSWORD`.
-3. Нажми «Подключить / переподключить DonationAlerts».
-4. На странице DonationAlerts подтверди запрашиваемый доступ.
-5. После возврата в панель укажи начальную сумму, цель и валюту.
-6. Нажми «Сохранить суммы».
-
-Для зачёта донаты должны приходить в выбранной валюте. Автоматической конвертации нет. Повторно полученные события с тем же ID не будут начислены дважды.
-
-## 8. Добавь виджет в OBS
-
-Создай источник «Браузер» и укажи:
-
-`https://charmeeck.github.io/charmeeck-tears/widget/`
-
-Размер: 1774 × 887. Не добавляй пароль, Client Secret или OAuth-токены в адрес OBS.
-
-## Важно про безопасность и оплату
-
-- OAuth Client Secret, access token, refresh token и ключ шифрования хранятся в секретах Cloudflare/зашифрованной базе, а не в публичном GitHub.
-- Не используй один аккаунт/секреты DonationAlerts для передачи другим стримерам.
-- В текущей схеме одна установка Worker и одна база рассчитаны на один аккаунт владельца. Для другого стримера нужна отдельная установка и отдельные секреты.
-- Durable Object поддерживает постоянное WebSocket-подключение к DonationAlerts. Оно может расходовать лимиты и тарифицируемые ресурсы Cloudflare. Проверяй Usage/Billing; бесплатность не гарантируется.
-- Реальное подключение не считается проверенным, пока владелец не завершит OAuth и не придёт тестовый донат.
+- Client Secret и OAuth-токены никогда не передаются в OBS.
+- Владелец сервиса хранит ключи OAuth в Cloudflare Secrets.
+- Access/Refresh Token каждого стримера хранятся зашифрованными в D1.
+- Browser Source key — персональная секретная ссылка; не публикуй её.
+- Донат в валюте, отличной от настроенной валюты сбора, не увеличивает прогресс. Автоконвертации нет.
+- Каждому стримеру доступны только его собственная панель, настройки, донаты и канал событий.
+- Одна установка обслуживает несколько аккаунтов; постоянное подключение Durable Object на каждого активного стримера расходует ресурсы Cloudflare. Следи за Usage/Billing.

@@ -375,6 +375,15 @@ async function api(request, env) {
     return json({ ok: true, donations: rows.results || [] });
   }
 
+  if (path === '/api/listener/restart' && request.method === 'POST') {
+    const account = await accountFromSession(request, env);
+    if (!account) return json({ ok: false, error: 'Сессия завершилась.' }, 401);
+    const response = await listenerCommand(env, account.account_id, '/start');
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) return json({ ok: false, error: result.error || 'Не удалось запустить приём донатов.' }, 502);
+    return json({ ok: true, listener: result });
+  }
+
   if (path === '/api/disconnect' && request.method === 'POST') {
     const account = await accountFromSession(request, env);
     if (!account) return json({ ok: false, error: 'Сессия завершилась.' }, 401);
@@ -470,8 +479,15 @@ export class DonationAlertsListener extends DurableObject {
     if (url.pathname === '/start') {
       await this.ctx.storage.put('listener_enabled', true);
       await this.ctx.storage.put('account_id', this.accountId);
-      await this.ctx.storage.setAlarm(Date.now() + 100);
-      return Response.json({ ok: true });
+      await this.ctx.storage.put('listener_state', 'connecting');
+      await this.ctx.storage.delete('last_error');
+      await this.connectDonationAlerts(false);
+      const status = await this.ctx.storage.get(['listener_state','last_error','last_connected_at']);
+      return Response.json({
+        ok: status.listener_state !== 'error',
+        state: status.listener_state || 'connecting',
+        last_error: status.last_error || ''
+      });
     }
     if (url.pathname === '/stop') {
       await this.ctx.storage.put('listener_enabled', false);
@@ -562,6 +578,8 @@ export class DonationAlertsListener extends DurableObject {
     if (!accountId) throw new Error('Не найден ID аккаунта стримера.');
     this.accountId = accountId;
     this.closeDonationSocket();
+    await this.ctx.storage.put('listener_state', 'connecting');
+    await this.ctx.storage.delete('last_error');
 
     let saved = await readAccountTokens(accountId, this.env);
     if (!saved || !saved.refresh_token) throw new Error('Нет Refresh Token. Стримеру нужно заново подключить DonationAlerts.');

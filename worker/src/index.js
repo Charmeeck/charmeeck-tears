@@ -482,11 +482,12 @@ export class DonationAlertsListener extends DurableObject {
       await this.ctx.storage.put('listener_state', 'connecting');
       await this.ctx.storage.delete('last_error');
       await this.connectDonationAlerts(false);
-      const status = await this.ctx.storage.get(['listener_state','last_error','last_connected_at']);
+      const listenerState = await this.ctx.storage.get('listener_state');
+      const lastError = await this.ctx.storage.get('last_error');
       return Response.json({
-        ok: status.listener_state !== 'error',
-        state: status.listener_state || 'connecting',
-        last_error: status.last_error || ''
+        ok: listenerState !== 'error',
+        state: listenerState || 'connecting',
+        last_error: lastError || ''
       });
     }
     if (url.pathname === '/stop') {
@@ -501,11 +502,13 @@ export class DonationAlertsListener extends DurableObject {
       return Response.json({ ok: true });
     }
     if (url.pathname === '/status') {
-      const status = await this.ctx.storage.get(['listener_state','last_error','last_connected_at']);
+      const listenerState = await this.ctx.storage.get('listener_state');
+      const lastError = await this.ctx.storage.get('last_error');
+      const lastConnectedAt = await this.ctx.storage.get('last_connected_at');
       return Response.json({
-        state: status.listener_state || 'not-started',
-        last_error: status.last_error || '',
-        last_connected_at: status.last_connected_at || ''
+        state: listenerState || 'not-started',
+        last_error: lastError || '',
+        last_connected_at: lastConnectedAt || ''
       });
     }
     return new Response('Not found', { status: 404 });

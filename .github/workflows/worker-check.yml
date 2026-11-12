@@ -52,6 +52,23 @@ jobs:
           print(f"Prepared {count} inline scripts for syntax validation.")
           PY
           for file in /tmp/tears-inline-checks/*.js; do node --check "$file"; done
+      - name: Guard Durable Object status storage reads
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          source = Path("worker/src/index.js").read_text(encoding="utf-8")
+          if "storage.get([" in source:
+              raise SystemExit("Do not read multiple DO storage keys as a plain object; use individual get(key) calls.")
+          required = [
+              "const listenerState = await this.ctx.storage.get('listener_state');",
+              "const lastError = await this.ctx.storage.get('last_error');",
+              "const lastConnectedAt = await this.ctx.storage.get('last_connected_at');"
+          ]
+          for item in required:
+              if item not in source:
+                  raise SystemExit("Missing explicit status storage read: " + item)
+          print("Durable Object status reads use individual storage keys.")
+          PY
       - name: Validate D1 schema and per-streamer separation
         run: |
           python - <<'PY'

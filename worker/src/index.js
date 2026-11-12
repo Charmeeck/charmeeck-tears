@@ -548,6 +548,7 @@ export class DonationAlertsListener extends DurableObject {
       const lastConnectedAt = await this.ctx.storage.get('last_connected_at');
       const lastMessageAt = await this.ctx.storage.get('last_message_at');
       const lastDonationAt = await this.ctx.storage.get('last_donation_at');
+      const lastDonationDiagnostic = await this.ctx.storage.get('last_donation_diagnostic');
       const lastFrameKind = await this.ctx.storage.get('last_frame_kind');
       const lastFrameKeys = await this.ctx.storage.get('last_frame_keys');
       const lastPublicationAt = await this.ctx.storage.get('last_publication_at');
@@ -566,6 +567,7 @@ export class DonationAlertsListener extends DurableObject {
         last_connected_at: lastConnectedAt || '',
         last_message_at: lastMessageAt || '',
         last_donation_at: lastDonationAt || '',
+        last_donation_diagnostic: lastDonationDiagnostic || null,
         last_frame_kind: lastFrameKind || '',
         last_frame_keys: lastFrameKeys || '',
         last_publication_at: lastPublicationAt || '',

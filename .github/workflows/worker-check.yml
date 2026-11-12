@@ -69,16 +69,22 @@ jobs:
                   raise SystemExit("Missing explicit status storage read: " + item)
           print("Durable Object status reads use individual storage keys.")
           PY
-      - name: Test nested DonationAlerts donation event payload
+      - name: Test documented DonationAlerts Centrifugo envelope
         run: |
           python - <<'PY'
           from pathlib import Path
           source = Path("worker/src/index.js").read_text(encoding="utf-8")
-          start = source.index("  extractDonation(value) {")
-          end = source.index(chr(10) + "  async subscribeToDonations()", start)
-          method = source[start:end]
-          method = method.replace("  extractDonation(value) {", "function extractDonation(value) {", 1)
-          test = method + chr(10) + """
+
+          helper_start = source.index("function extractDonationPublication(message) {")
+          helper_end = source.index(chr(10) + "function listener(env, accountId)", helper_start)
+          helper = source[helper_start:helper_end]
+
+          parser_start = source.index("  extractDonation(value) {")
+          parser_end = source.index(chr(10) + "  async subscribeToDonations()", parser_start)
+          parser = source[parser_start:parser_end]
+          parser = parser.replace("  extractDonation(value) {", "function extractDonation(value) {", 1)
+
+          test = helper + chr(10) + parser + chr(10) + """
           const assert = require('node:assert/strict');
           const event = {
             result: {
@@ -98,13 +104,16 @@ jobs:
               }
             }
           };
-          const donation = extractDonation(event);
-          assert.ok(donation, 'nested result.data.data donation must be found');
+          const publication = extractDonationPublication(event);
+          assert.ok(publication, 'result.channel + result.data publication must be detected');
+          assert.equal(publication.channel, '$alerts:donation_12345');
+          const donation = extractDonation(publication.payload);
+          assert.ok(donation, 'nested publication data must contain a donation');
           assert.equal(String(donation.id), '987654321');
           assert.equal(Number(donation.amount), 100);
           assert.equal(donation.currency, 'RUB');
           assert.equal(donation.username, 'TestViewer');
-          console.log('Nested DonationAlerts payload parsed successfully.');
+          console.log('Official DonationAlerts result.data envelope parsed successfully.');
           """
           Path("/tmp/test-donation-payload.cjs").write_text(test, encoding="utf-8")
           PY

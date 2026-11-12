@@ -73,13 +73,12 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
           source = Path("worker/src/index.js").read_text(encoding="utf-8")
-          match = re.search(r"  extractDonation\(value\) \{\n([\s\S]*?)\n  \}\n\n  async subscribeToDonations", source)
-          if not match:
-              raise SystemExit("Could not extract production donation parser for its regression test.")
-          test = "function extractDonation(value) {\n" + match.group(1) + "\n}\n"
-          test += """
+          start = source.index("  extractDonation(value) {")
+          end = source.index(chr(10) + "  async subscribeToDonations()", start)
+          method = source[start:end]
+          method = method.replace("  extractDonation(value) {", "function extractDonation(value) {", 1)
+          test = method + chr(10) + """
           const assert = require('node:assert/strict');
           const event = {
             result: {

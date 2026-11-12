@@ -97,7 +97,7 @@ jobs:
                   "  };"
               ])
               api_start = html.find("window.TearsWidget={")
-              api_end = html.find("\\n  };", api_start)
+              api_end = html.find(chr(10) + "  };", api_start)
               if api_start < 0 or api_end < 0:
                   raise SystemExit("Could not locate the v70 TearsWidget API.")
               html = html[:api_start] + api_new + html[api_end + 5:]

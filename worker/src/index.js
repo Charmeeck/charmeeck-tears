@@ -555,6 +555,11 @@ export class DonationAlertsListener extends DurableObject {
       const lastPayloadKind = await this.ctx.storage.get('last_payload_kind');
       const lastPayloadKeys = await this.ctx.storage.get('last_payload_keys');
       const lastParserResult = await this.ctx.storage.get('last_parser_result');
+      const subscribeStage = await this.ctx.storage.get('subscribe_stage');
+      const subscribeStartedAt = await this.ctx.storage.get('subscribe_started_at');
+      const subscribeCommandSentAt = await this.ctx.storage.get('subscribe_command_sent_at');
+      const subscribeResponseKeys = await this.ctx.storage.get('subscribe_response_keys');
+      const subscribeChannelsCount = await this.ctx.storage.get('subscribe_channels_count');
       return Response.json({
         state: listenerState || 'not-started',
         last_error: lastError || '',
@@ -567,7 +572,12 @@ export class DonationAlertsListener extends DurableObject {
         last_publication_channel: lastPublicationChannel || '',
         last_payload_kind: lastPayloadKind || '',
         last_payload_keys: lastPayloadKeys || '',
-        last_parser_result: lastParserResult || ''
+        last_parser_result: lastParserResult || '',
+        subscribe_stage: subscribeStage || '',
+        subscribe_started_at: subscribeStartedAt || '',
+        subscribe_command_sent_at: subscribeCommandSentAt || '',
+        subscribe_response_keys: subscribeResponseKeys || '',
+        subscribe_channels_count: subscribeChannelsCount == null ? null : subscribeChannelsCount
       });
     }
     return new Response('Not found', { status: 404 });
@@ -687,7 +697,10 @@ export class DonationAlertsListener extends DurableObject {
     socket.addEventListener('message', event => {
       this.messageQueue = this.messageQueue.then(() => this.handleCentrifugoMessage(event.data))
         .catch(async error => {
-          await this.ctx.storage.put('last_error', String(error && error.message || error).slice(0, 300));
+          const message = String(error && error.message || error).slice(0, 300);
+          await this.ctx.storage.put('last_error', message);
+          await this.ctx.storage.put('listener_state', 'error');
+          await this.ctx.storage.put('subscribe_stage', 'message-handler-failed');
           this.closeDonationSocket();
           await this.scheduleRetry();
         });
@@ -709,6 +722,18 @@ export class DonationAlertsListener extends DurableObject {
       let message;
       try { message = JSON.parse(chunk); } catch (_) {
         await this.ctx.storage.put('last_frame_kind', 'invalid-json');
+        continue;
+      }
+
+      if (message && message.error) {
+        const protocolError = 'Centrifugo подписка: ' +
+          String(message.error.message || 'ошибка') +
+          (message.error.code != null ? ' (код ' + String(message.error.code) + ')' : '');
+        await this.ctx.storage.put('last_frame_kind', 'subscription-error');
+        await this.ctx.storage.put('subscribe_stage', 'centrifugo-rejected-command');
+        await this.ctx.storage.put('last_error', protocolError.slice(0, 300));
+        await this.ctx.storage.put('listener_state', 'error');
+        this.broadcast({ type: 'status', state: 'error', message: protocolError });
         continue;
       }
 
@@ -827,24 +852,66 @@ export class DonationAlertsListener extends DurableObject {
     if (!saved || !saved.access_token || !saved.user_id || !this.clientId) {
       throw new Error('Не хватает данных для подписки Centrifugo.');
     }
+
     const channel = '$alerts:donation_' + saved.user_id;
-    const response = await daFetch(DA_API + '/centrifuge/subscribe', {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer ' + saved.access_token,
-        'content-type': 'application/json',
-        Accept: 'application/json'
-      },
-      body: JSON.stringify({ channels: [channel], client: this.clientId })
-    });
+    await this.ctx.storage.put('subscribe_stage', 'requesting-token');
+    await this.ctx.storage.put('subscribe_started_at', new Date().toISOString());
+    await this.ctx.storage.put('subscribe_channel', channel);
+    await this.ctx.storage.put('listener_state', 'requesting-subscription-token');
+    await this.ctx.storage.delete('last_error');
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let response;
+    try {
+      response = await daFetch(DA_API + '/centrifuge/subscribe', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + saved.access_token,
+          'content-type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({ channels: [channel], client: this.clientId }),
+        signal: controller.signal
+      });
+    } catch (error) {
+      const message = error && error.name === 'AbortError'
+        ? 'Тайм-аут DonationAlerts при выдаче токена подписки (15 секунд).'
+        : String(error && error.message || error);
+      await this.ctx.storage.put('subscribe_stage', 'token-request-failed');
+      await this.ctx.storage.put('last_error', message.slice(0, 300));
+      await this.ctx.storage.put('listener_state', 'error');
+      throw new Error(message);
+    } finally {
+      clearTimeout(timeout);
+    }
+
     const channels = response.channels || (response.data && response.data.channels) || [];
-    const subscription = channels.find(item => item.channel === channel && item.token);
-    if (!subscription) throw new Error('DonationAlerts не вернул token подписки.');
+    await this.ctx.storage.put('subscribe_response_keys', Object.keys(response || {}).join(',').slice(0, 200));
+    await this.ctx.storage.put('subscribe_channels_count', Array.isArray(channels) ? channels.length : -1);
+    const subscription = Array.isArray(channels)
+      ? channels.find(item => item && item.channel === channel && item.token)
+      : null;
+    if (!subscription) {
+      const returned = Array.isArray(channels)
+        ? channels.map(item => String(item && item.channel || '')).join(',')
+        : 'channels-not-array';
+      const message = 'DonationAlerts не вернул токен для нужного канала. Ключи ответа: ' +
+        Object.keys(response || {}).join(',') + '; каналы: ' + returned.slice(0, 160);
+      await this.ctx.storage.put('subscribe_stage', 'token-not-found');
+      await this.ctx.storage.put('last_error', message.slice(0, 300));
+      await this.ctx.storage.put('listener_state', 'error');
+      throw new Error(message);
+    }
+
+    await this.ctx.storage.put('subscribe_stage', 'token-received');
     this.daSocket.send(JSON.stringify({
       params: { channel, token: subscription.token },
       method: 1,
       id: 2
     }));
+    await this.ctx.storage.put('subscribe_stage', 'command-sent');
+    await this.ctx.storage.put('subscribe_command_sent_at', new Date().toISOString());
     await this.ctx.storage.put('listener_state', 'subscribing');
   }
 

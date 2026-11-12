@@ -698,18 +698,36 @@ export class DonationAlertsListener extends DurableObject {
       }
 
       const push = message && message.push || null;
-      const publication =
+      const resultChannel = String(message && message.result && message.result.channel || '');
+      const pushChannel = String(push && push.channel || '');
+      const publicationChannel = String(
+        pushChannel ||
+        message && message.result && message.result.pub && message.result.pub.channel ||
+        message && message.pub && message.pub.channel ||
+        resultChannel ||
+        message && message.channel ||
+        ''
+      );
+
+      // DonationAlerts' documented Centrifugo envelope is:
+      // { result: { channel: "$alerts:donation_<id>", data: { seq, data: <donation> } } }
+      // It is NOT wrapped in result.pub. Keep support for generic Centrifugo push.pub too.
+      let publication =
         push && push.pub ||
         message && message.result && message.result.pub ||
         message && message.pub ||
         null;
-      const publicationChannel = String(
-        push && push.channel ||
-        publication && publication.channel ||
-        message && message.result && message.result.channel ||
-        message && message.channel ||
-        ''
-      );
+      if (
+        !publication &&
+        resultChannel.startsWith('$alerts:donation_') &&
+        message && message.result &&
+        Object.prototype.hasOwnProperty.call(message.result, 'data')
+      ) {
+        publication = {
+          channel: resultChannel,
+          data: message.result.data
+        };
+      }
 
       if (publication) {
         await this.ctx.storage.put('last_publication_at', now);
@@ -733,13 +751,14 @@ export class DonationAlertsListener extends DurableObject {
         if (donation) {
           await this.recordDonation(donation);
         } else {
-          // Fallback: some event envelopes put the resource beside the publication data.
           const fallback = this.extractDonation(message);
           if (fallback) {
             await this.ctx.storage.put('last_parser_result', 'donation-found-in-envelope');
             await this.recordDonation(fallback);
           }
         }
+      } else if (message === null) {
+        await this.ctx.storage.put('last_frame_kind', 'null-frame');
       } else if (message && Object.keys(message).length === 0) {
         await this.ctx.storage.put('last_frame_kind', 'heartbeat');
       } else if (!(message && message.result && message.id === 2)) {

@@ -96,10 +96,11 @@ jobs:
                   "    getState:()=>({current,goal,currency,percent:clamp(current/goal*100,0,100)})",
                   "  };"
               ])
-              pattern = r"window\\.TearsWidget=\\{[\\s\\S]*?^\\s*\\};"
-              html, api_count = re.subn(pattern, api_new, html, count=1, flags=re.M)
-              if api_count != 1:
+              api_start = html.find("window.TearsWidget={")
+              api_end = html.find("\\n  };", api_start)
+              if api_start < 0 or api_end < 0:
                   raise SystemExit("Could not locate the v70 TearsWidget API.")
+              html = html[:api_start] + api_new + html[api_end + 5:]
               if production_page:
                   html = html.replace("  const status=document.getElementById('testStatus');", "  const status=null;")
                   html = html.replace(" — динамические суммы v70", " — v70")

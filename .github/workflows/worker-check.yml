@@ -14,7 +14,28 @@ jobs:
           node-version: 22
       - name: Check Cloudflare Worker syntax
         run: node --input-type=module --check < worker/src/index.js
-      - name: Check browser scripts
+      - name: Check external browser script
+        run: node --check da-cloudflare.js
+      - name: Check inline scripts in widget and admin pages
         run: |
-          node --check da-cloudflare.js
-          node --check widget/runtime.js
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          targets = [
+              Path("widget/index.html"),
+              Path("widget/test.html"),
+              Path("admin.html")
+          ]
+          out = Path("/tmp/tears-inline-checks")
+          out.mkdir(exist_ok=True)
+          count = 0
+          for target in targets:
+              source = target.read_text(encoding="utf-8")
+              for index, code in enumerate(re.findall(r"<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>", source)):
+                  if code.strip():
+                      (out / f"{target.stem}-{index}.js").write_text(code, encoding="utf-8")
+                      count += 1
+          print(f"Prepared {count} inline scripts for syntax validation.")
+          PY
+          for file in /tmp/tears-inline-checks/*.js; do node --check "$file"; done

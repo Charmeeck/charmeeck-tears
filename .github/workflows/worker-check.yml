@@ -69,6 +69,47 @@ jobs:
                   raise SystemExit("Missing explicit status storage read: " + item)
           print("Durable Object status reads use individual storage keys.")
           PY
+      - name: Test nested DonationAlerts donation event payload
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          source = Path("worker/src/index.js").read_text(encoding="utf-8")
+          match = re.search(r"  extractDonation\\(value\\) \\{\\n([\\s\\S]*?)\\n  \\}\\n\\n  async subscribeToDonations", source)
+          if not match:
+              raise SystemExit("Could not extract production donation parser for its regression test.")
+          test = "function extractDonation(value) {\\n" + match.group(1) + "\\n}\\n"
+          test += """
+          const assert = require('node:assert/strict');
+          const event = {
+            result: {
+              channel: '$alerts:donation_12345',
+              data: {
+                seq: 15,
+                data: {
+                  id: 987654321,
+                  name: 'donation',
+                  username: 'TestViewer',
+                  message: 'Tears v70 test',
+                  amount: 100,
+                  currency: 'RUB',
+                  created_at: '2026-11-12 12:30:00',
+                  reason: 'new'
+                }
+              }
+            }
+          };
+          const donation = extractDonation(event);
+          assert.ok(donation, 'nested result.data.data donation must be found');
+          assert.equal(String(donation.id), '987654321');
+          assert.equal(Number(donation.amount), 100);
+          assert.equal(donation.currency, 'RUB');
+          assert.equal(donation.username, 'TestViewer');
+          console.log('Nested DonationAlerts payload parsed successfully.');
+          """
+          Path("/tmp/test-donation-payload.cjs").write_text(test, encoding="utf-8")
+          PY
+          node /tmp/test-donation-payload.cjs
       - name: Validate D1 schema and per-streamer separation
         run: |
           python - <<'PY'

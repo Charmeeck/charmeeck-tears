@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS oauth_state (
   current_amount REAL NOT NULL,
   goal_amount REAL NOT NULL,
   currency TEXT NOT NULL,
+  client_nonce TEXT NOT NULL,
   expires_at INTEGER NOT NULL,
   created_at TEXT NOT NULL
 );

@@ -1,0 +1,54 @@
+name: Check DonationAlerts integration
+on:
+  push:
+    branches:
+      - integration/donationalerts
+  workflow_dispatch:
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check Cloudflare Worker syntax
+        run: node --input-type=module --check < worker/src/index.js
+      - name: Check external browser script
+        run: node --check da-cloudflare.js
+      - name: Check inline scripts in widget and admin pages
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          targets = [
+              Path("widget/index.html"),
+              Path("widget/test.html"),
+              Path("admin.html")
+          ]
+          out = Path("/tmp/tears-inline-checks")
+          out.mkdir(exist_ok=True)
+          count = 0
+          for target in targets:
+              source = target.read_text(encoding="utf-8")
+              cursor = 0
+              index = 0
+              while True:
+                  start = source.find("<script", cursor)
+                  if start < 0:
+                      break
+                  open_end = source.find(">", start)
+                  close = source.find("</script>", open_end)
+                  if open_end < 0 or close < 0:
+                      raise SystemExit("Malformed script tag in " + str(target))
+                  code = source[open_end + 1:close]
+                  if code.strip():
+                      (out / f"{target.stem}-{index}.js").write_text(code, encoding="utf-8")
+                      count += 1
+                  index += 1
+                  cursor = close + len("</script>")
+          if count == 0:
+              raise SystemExit("No inline scripts were found to validate.")
+          print(f"Prepared {count} inline scripts for syntax validation.")
+          PY
+          for file in /tmp/tears-inline-checks/*.js; do node --check "$file"; done

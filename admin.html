@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Слёзы — панель DonationAlerts</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:26px 14px;background:#071629;color:#effaff;font:15px/1.5 system-ui,Segoe UI,sans-serif}
+main{max-width:900px;margin:auto}h1{margin:0 0 6px;font-size:27px}.muted,.small{color:#aac6d8}.small{font-size:13px;word-break:break-word}
+.card{background:#0d2238;border:1px solid #286184;border-radius:15px;padding:20px;margin:15px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}label{display:block;margin:12px 0 5px;font-weight:700}
+input,select{width:100%;padding:11px;border:1px solid #35617d;border-radius:8px;background:#06182a;color:#fff;font-size:15px}
+button{border:0;border-radius:9px;padding:11px 16px;background:#167eb4;color:white;font-weight:700;cursor:pointer;margin:7px 7px 0 0}
+button.secondary{background:#173b57;border:1px solid #3a6c8a}button.danger{background:#713248}button:disabled{opacity:.55}
+.pill{display:inline-block;padding:4px 10px;border-radius:999px;background:#123d59;color:#bdeeff;font-size:12px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.error{display:none;padding:11px;border-radius:8px;background:#482231;color:#ffe5ec;margin-top:12px}
+.status{display:none;padding:11px;border-radius:8px;background:#103b3b;color:#c7fff2;margin-top:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:9px 7px;border-bottom:1px solid #24465e;text-align:left}th{color:#9edfff}
+#dashboard{display:none}@media(max-width:650px){.grid{grid-template-columns:1fr}.card{padding:15px}}
+</style></head><body><main>
+<div class="row"><div><h1>Слёзы — DonationAlerts</h1><p class="muted">Панель владельца донат-бара. Сначала подключи свой аккаунт DonationAlerts.</p></div><span class="pill">GitHub Pages + Cloudflare</span></div>
+<section class="card" id="loginCard"><h2>Вход администратора</h2><p class="small">Введи пароль, который будет задан в Cloudflare командой wrangler secret put ADMIN_PASSWORD.</p>
+<label for="adminPassword">Пароль администратора</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Пароль Worker">
+<button id="loginBtn">Войти</button><div class="error" id="loginError"></div></section>
+<section id="dashboard">
+<div class="card"><div class="row"><h2>1. DonationAlerts</h2><span class="pill" id="connectionPill">Проверка…</span></div>
+<p id="connectionText" class="small">Проверяю подключение…</p><button id="connectBtn">Подключить / переподключить DonationAlerts</button><button id="disconnectBtn" class="danger">Отключить аккаунт</button>
+<p class="small">Для приложения DonationAlerts понадобятся разрешения oauth-user-show и oauth-donation-subscribe.</p><div class="error" id="connectError"></div></div>
+<div class="card"><h2>2. Сумма и цель</h2><div class="grid"><div><label for="currentAmount">Начальная / текущая сумма</label><input id="currentAmount" type="number" min="0" step="0.01" value="0"></div><div><label for="goalAmount">Цель сбора</label><input id="goalAmount" type="number" min="0.01" step="0.01" value="10000"></div></div>
+<label for="currency">Валюта</label><select id="currency"><option value="RUB">RUB — рубль</option><option value="USD">USD — доллар</option><option value="EUR">EUR — евро</option><option value="KZT">KZT — тенге</option><option value="UAH">UAH — гривна</option><option value="BYN">BYN — белорусский рубль</option><option value="BRL">BRL — реал</option><option value="TRY">TRY — лира</option></select>
+<p class="small">Все новые донаты в выбранной валюте будут прибавляться к сумме. Автоматической конвертации валют нет.</p><button id="saveBtn">Сохранить суммы</button><div class="error" id="settingsError"></div><div class="status" id="settingsStatus"></div></div>
+<div class="card"><div class="row"><h2>3. Последние донаты</h2><button id="refreshDonations" class="secondary">Обновить</button></div><div id="donationsTable" class="small">Пока нет записей.</div></div>
+<div class="card"><h2>4. Адрес для OBS</h2><p class="small">Для Browser Source используй адрес страницы /charmeeck-tears/widget/ (или локальный путь widget/index.html). Размер 1774 × 887. Пароль панели не добавляй в ссылку OBS.</p><button id="logoutBtn" class="secondary">Выйти</button></div>
+</section></main>
+<script src="./config.js"></script><script>
+(() => {
+let base=String(window.TEARS_DA_WORKER||'');while(base.endsWith('/'))base=base.slice(0,-1);
+const $=id=>document.getElementById(id);
+let password=sessionStorage.getItem('tearsAdminPassword')||'';
+const hide=id=>{$(id).style.display='none';$(id).textContent='';};
+const fail=(id,msg)=>{$(id).textContent=msg;$(id).style.display='block';};
+async function api(path,method='GET',body=null){
+if(!base||base.includes('REPLACE-WITH-YOUR-WORKER'))throw new Error('Сначала укажи адрес Worker в config.js.');
+const res=await fetch(base+path,{method,cache:'no-store',headers:{Authorization:'Bearer '+password,'Content-Type':'application/json'},body:body===null?undefined:JSON.stringify(body)});
+const data=await res.json().catch(()=>({}));if(!res.ok||data.ok===false)throw new Error(data.error||('HTTP '+res.status));return data;
+}
+function dashboard(){ $('loginCard').style.display='none';$('dashboard').style.display='block';}
+async function status(){
+const r=await api('/api/admin/status');const s=r.settings||{};
+$('currentAmount').value=s.current_amount??0;$('goalAmount').value=s.goal_amount??10000;$('currency').value=s.currency||'RUB';
+$('connectionPill').textContent=r.connected?'DonationAlerts подключён':'Не подключён';
+$('connectionText').textContent=r.connected?'Аккаунт: '+(r.streamer_name||'подключён')+'. Состояние приёмника: '+(r.listener?.state||'неизвестно')+'.':'Нажми «Подключить DonationAlerts».';
+if(r.listener?.last_error)$('connectionText').textContent+=' Ошибка: '+r.listener.last_error;
+}
+async function donations(){
+const r=await api('/api/admin/donations'),rows=r.donations||[];
+if(!rows.length){$('donationsTable').textContent='Пока нет записей.';return;}
+const table=document.createElement('table'),head=document.createElement('tr');
+['Дата','Отправитель','Сумма','Валюта','Зачтён'].forEach(x=>{const th=document.createElement('th');th.textContent=x;head.appendChild(th);});table.appendChild(head);
+rows.forEach(item=>{const tr=document.createElement('tr');[item.created_at,item.username,Number(item.amount).toLocaleString('ru-RU'),item.currency,Number(item.counted)?'Да':'Нет'].forEach(v=>{const td=document.createElement('td');td.textContent=String(v??'');tr.appendChild(td);});table.appendChild(tr);});
+$('donationsTable').replaceChildren(table);
+}
+$('loginBtn').onclick=async()=>{hide('loginError');password=$('adminPassword').value;try{await status();sessionStorage.setItem('tearsAdminPassword',password);dashboard();await donations();}catch(e){password='';fail('loginError',e.message);}};
+$('connectBtn').onclick=async()=>{hide('connectError');try{const r=await api('/api/admin/connect-url','POST',{});sessionStorage.setItem('tearsAdminPassword',password);location.href=r.authorize_url;}catch(e){fail('connectError',e.message);}};
+$('disconnectBtn').onclick=async()=>{if(!confirm('Отключить аккаунт DonationAlerts?'))return;try{await api('/api/admin/disconnect','POST',{});await status();}catch(e){fail('connectError',e.message);}};
+$('saveBtn').onclick=async()=>{hide('settingsError');try{const r=await api('/api/admin/settings','POST',{current_amount:Number($('currentAmount').value),goal_amount:Number($('goalAmount').value),currency:$('currency').value});$('settingsStatus').textContent='Сохранено. Текущая сумма: '+Number(r.settings.current_amount).toLocaleString('ru-RU')+' '+r.settings.currency;$('settingsStatus').style.display='block';await status();}catch(e){fail('settingsError',e.message);}};
+$('refreshDonations').onclick=()=>donations().catch(e=>fail('settingsError',e.message));
+$('logoutBtn').onclick=()=>{sessionStorage.removeItem('tearsAdminPassword');password='';location.reload();};
+if(password){$('adminPassword').value=password;status().then(()=>{dashboard();return donations();}).catch(()=>{sessionStorage.removeItem('tearsAdminPassword');password='';});}
+if(new URLSearchParams(location.search).get('connected')==='1')history.replaceState({},'',location.pathname);
+})();
+</script></body></html>

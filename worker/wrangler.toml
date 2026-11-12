@@ -1,0 +1,23 @@
+name = "tears-donationalerts"
+main = "src/index.js"
+compatibility_date = "2026-11-11"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tears-donations"
+database_id = "PASTE_D1_DATABASE_ID_HERE"
+migrations_dir = "migrations"
+
+[[durable_objects.bindings]]
+name = "LISTENER"
+class_name = "DonationAlertsListener"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["DonationAlertsListener"]
+
+[vars]
+WORKER_BASE_URL = "https://REPLACE-WITH-YOUR-WORKER.workers.dev"
+ALLOWED_ORIGIN = "https://charmeeck.github.io"
+ADMIN_PAGE_URL = "https://charmeeck.github.io/charmeeck-tears/admin.html"

@@ -549,6 +549,7 @@ export class DonationAlertsListener extends DurableObject {
       const lastMessageAt = await this.ctx.storage.get('last_message_at');
       const lastDonationAt = await this.ctx.storage.get('last_donation_at');
       const lastDonationDiagnostic = await this.ctx.storage.get('last_donation_diagnostic');
+      const duplicateDonationCount = Number(await this.ctx.storage.get('duplicate_donation_count') || 0);
       const lastFrameKind = await this.ctx.storage.get('last_frame_kind');
       const lastFrameKeys = await this.ctx.storage.get('last_frame_keys');
       const lastPublicationAt = await this.ctx.storage.get('last_publication_at');
@@ -568,6 +569,7 @@ export class DonationAlertsListener extends DurableObject {
         last_message_at: lastMessageAt || '',
         last_donation_at: lastDonationAt || '',
         last_donation_diagnostic: lastDonationDiagnostic || null,
+        duplicate_donation_count: duplicateDonationCount,
         last_frame_kind: lastFrameKind || '',
         last_frame_keys: lastFrameKeys || '',
         last_publication_at: lastPublicationAt || '',
@@ -954,7 +956,23 @@ export class DonationAlertsListener extends DurableObject {
 
     diagnostic.insert_changes = Number(inserted && inserted.meta && inserted.meta.changes || 0);
     if (!diagnostic.insert_changes) {
-      diagnostic.stage = 'duplicate-or-not-inserted';
+      const existingDonation = await this.env.DB.prepare(
+        'SELECT donation_id,amount,currency,counted,created_at FROM donations WHERE account_id=? AND donation_id=?'
+      ).bind(accountId, id).first();
+      if (existingDonation) {
+        diagnostic.stage = 'duplicate-detected';
+        diagnostic.duplicate = true;
+        diagnostic.duplicate_reason = 'donation-id-already-recorded';
+        diagnostic.existing_amount = Number(existingDonation.amount);
+        diagnostic.existing_currency = String(existingDonation.currency || '');
+        diagnostic.existing_counted = Boolean(Number(existingDonation.counted));
+        const duplicateCount = Number(await this.ctx.storage.get('duplicate_donation_count') || 0) + 1;
+        await this.ctx.storage.put('duplicate_donation_count', duplicateCount);
+      } else {
+        diagnostic.stage = 'insert-not-applied';
+        diagnostic.duplicate = false;
+        diagnostic.duplicate_reason = 'insert-ignored-without-existing-row';
+      }
       await this.ctx.storage.put('last_donation_diagnostic', diagnostic);
       return;
     }

@@ -20,7 +20,6 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
 
           targets = [
               Path("widget/index.html"),
@@ -32,10 +31,24 @@ jobs:
           count = 0
           for target in targets:
               source = target.read_text(encoding="utf-8")
-              for index, code in enumerate(re.findall(r"<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>", source)):
+              cursor = 0
+              index = 0
+              while True:
+                  start = source.find("<script", cursor)
+                  if start < 0:
+                      break
+                  open_end = source.find(">", start)
+                  close = source.find("</script>", open_end)
+                  if open_end < 0 or close < 0:
+                      raise SystemExit("Malformed script tag in " + str(target))
+                  code = source[open_end + 1:close]
                   if code.strip():
                       (out / f"{target.stem}-{index}.js").write_text(code, encoding="utf-8")
                       count += 1
+                  index += 1
+                  cursor = close + len("</script>")
+          if count == 0:
+              raise SystemExit("No inline scripts were found to validate.")
           print(f"Prepared {count} inline scripts for syntax validation.")
           PY
           for file in /tmp/tears-inline-checks/*.js; do node --check "$file"; done

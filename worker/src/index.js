@@ -136,6 +136,47 @@ async function writeAccountTokens(accountId, tokenData, env) {
     accountId
   ).run();
 }
+function extractDonationPublication(message) {
+  const push = message && message.push || null;
+  const resultChannel = String(message && message.result && message.result.channel || '');
+  const pushChannel = String(push && push.channel || '');
+  const channel = String(
+    pushChannel ||
+    message && message.result && message.result.pub && message.result.pub.channel ||
+    message && message.pub && message.pub.channel ||
+    resultChannel ||
+    message && message.channel ||
+    ''
+  );
+
+  // DonationAlerts' documented envelope uses result.channel + result.data.
+  // Generic Centrifugo publications may instead use push.pub or pub.
+  let publication =
+    push && push.pub ||
+    message && message.result && message.result.pub ||
+    message && message.pub ||
+    null;
+
+  if (
+    !publication &&
+    resultChannel.startsWith('$alerts:donation_') &&
+    message && message.result &&
+    Object.prototype.hasOwnProperty.call(message.result, 'data')
+  ) {
+    publication = {
+      channel: resultChannel,
+      data: message.result.data
+    };
+  }
+  if (!publication) return null;
+  return {
+    channel: String(publication.channel || channel),
+    payload: Object.prototype.hasOwnProperty.call(publication, 'data')
+      ? publication.data
+      : publication
+  };
+}
+
 function listener(env, accountId) {
   return env.LISTENER.get(env.LISTENER.idFromName(String(accountId)));
 }
@@ -697,45 +738,13 @@ export class DonationAlertsListener extends DurableObject {
         if (message.result.type === 1 && message.result.data && message.result.data.info) continue;
       }
 
-      const push = message && message.push || null;
-      const resultChannel = String(message && message.result && message.result.channel || '');
-      const pushChannel = String(push && push.channel || '');
-      const publicationChannel = String(
-        pushChannel ||
-        message && message.result && message.result.pub && message.result.pub.channel ||
-        message && message.pub && message.pub.channel ||
-        resultChannel ||
-        message && message.channel ||
-        ''
-      );
-
-      // DonationAlerts' documented Centrifugo envelope is:
-      // { result: { channel: "$alerts:donation_<id>", data: { seq, data: <donation> } } }
-      // It is NOT wrapped in result.pub. Keep support for generic Centrifugo push.pub too.
-      let publication =
-        push && push.pub ||
-        message && message.result && message.result.pub ||
-        message && message.pub ||
-        null;
-      if (
-        !publication &&
-        resultChannel.startsWith('$alerts:donation_') &&
-        message && message.result &&
-        Object.prototype.hasOwnProperty.call(message.result, 'data')
-      ) {
-        publication = {
-          channel: resultChannel,
-          data: message.result.data
-        };
-      }
-
-      if (publication) {
+      const publicationInfo = extractDonationPublication(message);
+      if (publicationInfo) {
         await this.ctx.storage.put('last_publication_at', now);
-        await this.ctx.storage.put('last_publication_channel', publicationChannel.slice(0, 160));
+        await this.ctx.storage.put('last_publication_channel', publicationInfo.channel.slice(0, 160));
         await this.ctx.storage.put('last_frame_kind', 'publication');
 
-        let payload = publication;
-        if (Object.prototype.hasOwnProperty.call(publication, 'data')) payload = publication.data;
+        const payload = publicationInfo.payload;
         if (typeof payload === 'string') {
           await this.ctx.storage.put('last_payload_kind', 'string');
         } else if (payload && typeof payload === 'object') {
@@ -761,7 +770,7 @@ export class DonationAlertsListener extends DurableObject {
         await this.ctx.storage.put('last_frame_kind', 'null-frame');
       } else if (message && Object.keys(message).length === 0) {
         await this.ctx.storage.put('last_frame_kind', 'heartbeat');
-      } else if (!(message && message.result && message.id === 2)) {
+      } else {
         await this.ctx.storage.put('last_frame_kind', 'service-message');
       }
 

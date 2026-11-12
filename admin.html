@@ -282,14 +282,25 @@ th{color:#9edfff}
     if (listener.subscribe_response_keys) activity.push('Поля ответа API подписки: ' + listener.subscribe_response_keys);
     if (listener.subscribe_channels_count != null) activity.push('Каналов в ответе: ' + listener.subscribe_channels_count);
     if (listener.last_donation_at) activity.push('Последний принятый донат: ' + dateLabel(listener.last_donation_at));
+    if (listener.duplicate_donation_count != null) {
+      activity.push('Повторных донатов заблокировано: ' + Number(listener.duplicate_donation_count));
+    }
     if (listener.last_donation_diagnostic) {
       const d = listener.last_donation_diagnostic;
-      activity.push('Диагностика начисления: ' + String(d.stage || 'нет этапа') +
-        (d.amount != null ? ', донат ' + d.amount + ' ' + String(d.currency || '') : '') +
-        (d.balance_before != null ? ', до ' + d.balance_before : '') +
-        (d.balance_after != null ? ', после ' + d.balance_after : '') +
-        (d.insert_changes != null ? ', запись ' + d.insert_changes : '') +
-        (d.update_changes != null ? ', обновление ' + d.update_changes : ''));
+      if (d.stage === 'duplicate-detected') {
+        activity.push('Повторный донат: начисление заблокировано' +
+          (d.amount != null ? ', событие ' + d.amount + ' ' + String(d.currency || '') : '') +
+          (d.donation_id ? ', ID ' + String(d.donation_id) : '') +
+          (d.existing_amount != null ? ', исходная запись ' + d.existing_amount + ' ' + String(d.existing_currency || '') : '') +
+          (d.balance_before != null ? ', баланс остался ' + d.balance_before : ''));
+      } else {
+        activity.push('Диагностика начисления: ' + String(d.stage || 'нет этапа') +
+          (d.amount != null ? ', донат ' + d.amount + ' ' + String(d.currency || '') : '') +
+          (d.balance_before != null ? ', до ' + d.balance_before : '') +
+          (d.balance_after != null ? ', после ' + d.balance_after : '') +
+          (d.insert_changes != null ? ', запись ' + d.insert_changes : '') +
+          (d.update_changes != null ? ', обновление ' + d.update_changes : ''));
+      }
     }
     if (listener.last_error) activity.push('Ошибка: ' + listener.last_error);
     $('listenerActivity').textContent = activity.join(' · ');

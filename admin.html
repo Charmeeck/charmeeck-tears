@@ -266,8 +266,16 @@ th{color:#9edfff}
     };
     const activity = [];
     activity.push(listener.last_message_at
-      ? 'Последнее сообщение от DonationAlerts: ' + dateLabel(listener.last_message_at)
+      ? 'Последнее сообщение от DonationAlerts: ' + dateLabel(listener.last_message_at) + ' (' + String(listener.last_frame_kind || 'неизвестный тип') + ')'
       : 'Сообщения от DonationAlerts пока не поступали.');
+    if (listener.last_publication_at) {
+      activity.push('Последняя публикация: ' + dateLabel(listener.last_publication_at));
+      if (listener.last_publication_channel) activity.push('Канал: ' + listener.last_publication_channel);
+      if (listener.last_parser_result) activity.push('Разбор события: ' + listener.last_parser_result);
+      if (listener.last_payload_keys) activity.push('Поля события: ' + listener.last_payload_keys);
+    } else if (listener.last_frame_keys) {
+      activity.push('Поля последнего сообщения: ' + listener.last_frame_keys);
+    }
     if (listener.last_donation_at) activity.push('Последний принятый донат: ' + dateLabel(listener.last_donation_at));
     if (listener.last_error) activity.push('Ошибка: ' + listener.last_error);
     $('listenerActivity').textContent = activity.join(' · ');

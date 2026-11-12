@@ -57,3 +57,10 @@
 Открой `https://tears-donationalerts.charmwizard.workers.dev/health`. Ответ должен содержать `"ok":true`. Затем подключи один тестовый аккаунт, открой его персональную ссылку в OBS и проверь небольшой тестовый донат.
 
 Постоянный WebSocket в Durable Object расходует ресурсы Cloudflare. Проверяй Usage/Billing, особенно при росте числа одновременно подключённых стримеров.
+
+## Автоматическое развёртывание
+
+Cloudflare Workers Builds подключён к репозиторию `Charmeeck/charmeeck-tears`,
+ветке `main` и корневой папке `/worker`. Новый коммит в этой папке запускает
+команду `npx wrangler deploy`. Коммиты только в корне сайта не должны подменять
+код Worker.

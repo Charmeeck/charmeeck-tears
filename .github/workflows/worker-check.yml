@@ -2,7 +2,7 @@ name: Check multi-streamer DonationAlerts integration
 on:
   push:
     branches:
-      - refactor/multistream-oauth
+      - main
   workflow_dispatch:
 jobs:
   syntax:

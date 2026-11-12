@@ -6,7 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "tears-donations"
-database_id = "PASTE_D1_DATABASE_ID_HERE"
+database_id = "9405bf2e-ead2-4d7c-8f12-edb7b4f2f9dc"
 migrations_dir = "migrations"
 
 [[durable_objects.bindings]]
